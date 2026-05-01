@@ -1,0 +1,334 @@
+@import "tailwindcss";
+
+/* ===== mcDJ Custom Theme ===== */
+
+@theme {
+  --color-neon-purple: #a855f7;
+  --color-neon-cyan: #06b6d4;
+  --color-neon-pink: #ec4899;
+  --color-neon-green: #10b981;
+  --color-neon-yellow: #f59e0b;
+  --color-club-bg: #0a0a0f;
+  --color-club-surface: #12121a;
+  --color-club-card: #1a1a2e;
+  --color-club-border: #2a2a3e;
+  --color-club-text: #e2e8f0;
+  --color-club-muted: #64748b;
+}
+
+/* ===== Global Styles ===== */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #0a0a0f;
+  color: #e2e8f0;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* ===== Scrollbar ===== */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #12121a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #a855f7;
+  border-radius: 3px;
+}
+
+/* ===== Glow Effects ===== */
+
+.glow-purple {
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.3), 0 0 60px rgba(168, 85, 247, 0.1);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3), 0 0 60px rgba(6, 182, 212, 0.1);
+}
+
+.glow-pink {
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.3), 0 0 60px rgba(236, 72, 153, 0.1);
+}
+
+.text-glow-purple {
+  text-shadow: 0 0 20px rgba(168, 85, 247, 0.5), 0 0 40px rgba(168, 85, 247, 0.3);
+}
+
+.text-glow-cyan {
+  text-shadow: 0 0 20px rgba(6, 182, 212, 0.5), 0 0 40px rgba(6, 182, 212, 0.3);
+}
+
+.text-glow-pink {
+  text-shadow: 0 0 20px rgba(236, 72, 153, 0.5), 0 0 40px rgba(236, 72, 153, 0.3);
+}
+
+/* ===== Animations ===== */
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes equalizer {
+  0%, 100% { height: 4px; }
+  50% { height: 20px; }
+}
+
+@keyframes vibe-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.4s ease-out;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+.animate-vibe-pulse {
+  animation: vibe-pulse 0.8s ease-in-out infinite;
+}
+
+/* ===== Glass Effect ===== */
+
+.glass {
+  background: rgba(26, 26, 46, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(168, 85, 247, 0.15);
+}
+
+.glass-card {
+  background: rgba(26, 26, 46, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(42, 42, 62, 0.6);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(168, 85, 247, 0.4);
+  box-shadow: 0 0 30px rgba(168, 85, 247, 0.1);
+}
+
+/* ===== Gradient Backgrounds ===== */
+
+.bg-gradient-club {
+  background: linear-gradient(135deg, #0a0a0f 0%, #12121a 50%, #1a1a2e 100%);
+}
+
+.bg-gradient-neon {
+  background: linear-gradient(135deg, #a855f7, #06b6d4, #ec4899);
+  background-size: 200% 200%;
+  animation: gradient-shift 5s ease infinite;
+}
+
+/* ===== Input Styles ===== */
+
+.input-club {
+  background: rgba(18, 18, 26, 0.8);
+  border: 1px solid rgba(42, 42, 62, 0.8);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: #e2e8f0;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  outline: none;
+  width: 100%;
+}
+
+.input-club:focus {
+  border-color: #a855f7;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);
+}
+
+.input-club::placeholder {
+  color: #64748b;
+}
+
+/* ===== Button Styles ===== */
+
+.btn-neon {
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-neon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.btn-neon:hover {
+  transform: translateY(-2px);
+}
+
+.btn-neon:active {
+  transform: translateY(0);
+}
+
+.btn-purple {
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  color: white;
+}
+
+.btn-purple:hover {
+  box-shadow: 0 0 30px rgba(168, 85, 247, 0.4);
+}
+
+.btn-cyan {
+  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  color: white;
+}
+
+.btn-cyan:hover {
+  box-shadow: 0 0 30px rgba(6, 182, 212, 0.4);
+}
+
+.btn-pink {
+  background: linear-gradient(135deg, #ec4899, #db2777);
+  color: white;
+}
+
+.btn-pink:hover {
+  box-shadow: 0 0 30px rgba(236, 72, 153, 0.4);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid rgba(168, 85, 247, 0.5);
+  color: #a855f7;
+}
+
+.btn-outline:hover {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: #a855f7;
+}
+
+/* ===== Equalizer Bars ===== */
+
+.eq-bar {
+  width: 3px;
+  background: #a855f7;
+  border-radius: 2px;
+  animation: equalizer 0.8s ease-in-out infinite;
+}
+
+.eq-bar:nth-child(1) { animation-delay: 0s; height: 12px; }
+.eq-bar:nth-child(2) { animation-delay: 0.2s; height: 20px; }
+.eq-bar:nth-child(3) { animation-delay: 0.4s; height: 8px; }
+.eq-bar:nth-child(4) { animation-delay: 0.1s; height: 16px; }
+.eq-bar:nth-child(5) { animation-delay: 0.3s; height: 12px; }
+
+/* ===== Progress Bar ===== */
+
+.progress-track {
+  height: 4px;
+  background: rgba(42, 42, 62, 0.8);
+  border-radius: 2px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #a855f7, #ec4899);
+  border-radius: 2px;
+  transition: width 0.3s linear;
+}
+
+/* ===== Vibe Meter ===== */
+
+.vibe-meter {
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(42, 42, 62, 0.8);
+}
+
+.vibe-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease, background-color 0.5s ease;
+}
+
+/* ===== Responsive ===== */
+
+@media (max-width: 768px) {
+  .mobile-stack {
+    flex-direction: column;
+  }
+}
