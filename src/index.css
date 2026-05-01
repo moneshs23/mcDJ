@@ -332,3 +332,383 @@ body {
     flex-direction: column;
   }
 }
+
+/* ======================================== */
+/* ===== DJ CONSOLE STYLES =============== */
+/* ======================================== */
+
+/* ===== DJ Layout ===== */
+
+.dj-console {
+  display: grid;
+  grid-template-rows: auto 1fr auto auto auto;
+  min-height: calc(100vh - 64px);
+  gap: 0;
+}
+
+.dj-decks-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 12px 16px;
+}
+
+@media (max-width: 900px) {
+  .dj-decks-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Deck Container ===== */
+
+.dj-deck {
+  background: rgba(18, 18, 26, 0.9);
+  border: 1px solid rgba(42, 42, 62, 0.7);
+  border-radius: 16px;
+  padding: 16px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.dj-deck.deck-a {
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.dj-deck.deck-a:hover,
+.dj-deck.deck-a.deck-active {
+  border-color: rgba(168, 85, 247, 0.6);
+  box-shadow: 0 0 30px rgba(168, 85, 247, 0.15), inset 0 0 30px rgba(168, 85, 247, 0.03);
+}
+
+.dj-deck.deck-b {
+  border-color: rgba(6, 182, 212, 0.3);
+}
+
+.dj-deck.deck-b:hover,
+.dj-deck.deck-b.deck-active {
+  border-color: rgba(6, 182, 212, 0.6);
+  box-shadow: 0 0 30px rgba(6, 182, 212, 0.15), inset 0 0 30px rgba(6, 182, 212, 0.03);
+}
+
+.dj-deck.drop-over {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 40px rgba(16, 185, 129, 0.3) !important;
+  background: rgba(16, 185, 129, 0.05);
+}
+
+/* ===== Waveform ===== */
+
+.waveform-container {
+  width: 100%;
+  height: 100px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(10, 10, 15, 0.8);
+  border: 1px solid rgba(42, 42, 62, 0.5);
+  position: relative;
+  cursor: pointer;
+}
+
+.waveform-container canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.waveform-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.waveform-overlay-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(100, 116, 139, 0.5);
+  font-size: 12px;
+  pointer-events: none;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* ===== EQ Sliders ===== */
+
+.eq-group {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+.eq-slider-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.eq-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 6px;
+  height: 72px;
+  background: rgba(42, 42, 62, 0.8);
+  border-radius: 3px;
+  outline: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+}
+
+.eq-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.eq-slider.eq-hi::-webkit-slider-thumb {
+  background: #06b6d4;
+}
+
+.eq-slider.eq-mid::-webkit-slider-thumb {
+  background: #ec4899;
+}
+
+.eq-slider.eq-lo::-webkit-slider-thumb {
+  background: #a855f7;
+}
+
+/* ===== Volume Fader ===== */
+
+.vol-fader {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 6px;
+  height: 80px;
+  background: rgba(42, 42, 62, 0.8);
+  border-radius: 3px;
+  outline: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+}
+
+.vol-fader::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 10px;
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(168, 85, 247, 0.4);
+}
+
+/* ===== Crossfader ===== */
+
+.crossfader-section {
+  padding: 8px 16px 12px;
+}
+
+.crossfader-track {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  display: block;
+}
+
+.crossfader-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  background: linear-gradient(90deg, rgba(168,85,247,0.3), rgba(42,42,62,0.8) 40%, rgba(42,42,62,0.8) 60%, rgba(6,182,212,0.3));
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+}
+
+.crossfader-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 40px;
+  height: 20px;
+  background: linear-gradient(135deg, #1a1a2e, #2a2a3e);
+  border: 2px solid rgba(168, 85, 247, 0.5);
+  border-radius: 6px;
+  cursor: grab;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.2);
+}
+
+.crossfader-input::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  border-color: #a855f7;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+}
+
+/* ===== Transport Buttons ===== */
+
+.transport-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(42, 42, 62, 0.8);
+  background: rgba(26, 26, 46, 0.8);
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.transport-btn:hover {
+  border-color: rgba(168, 85, 247, 0.5);
+  background: rgba(168, 85, 247, 0.1);
+}
+
+.transport-btn.play-btn {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  border: none;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+}
+
+.transport-btn.play-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 25px rgba(168, 85, 247, 0.5);
+}
+
+.transport-btn.play-btn.deck-b-play {
+  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+}
+
+.transport-btn.play-btn.deck-b-play:hover {
+  box-shadow: 0 0 25px rgba(6, 182, 212, 0.5);
+}
+
+/* ===== Track Library ===== */
+
+.track-library {
+  padding: 8px 16px 12px;
+  border-top: 1px solid rgba(42, 42, 62, 0.5);
+  background: rgba(12, 12, 18, 0.6);
+}
+
+.track-card {
+  min-width: 140px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(26, 26, 46, 0.7);
+  border: 1px solid rgba(42, 42, 62, 0.6);
+  cursor: grab;
+  transition: all 0.2s ease;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.track-card:hover {
+  border-color: rgba(168, 85, 247, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.15);
+}
+
+.track-card:active {
+  cursor: grabbing;
+  transform: scale(0.97);
+  opacity: 0.8;
+}
+
+.track-card.dragging {
+  opacity: 0.4;
+}
+
+/* ===== AI Panel ===== */
+
+.ai-panel {
+  padding: 8px 16px;
+  border-top: 1px solid rgba(42, 42, 62, 0.5);
+  background: rgba(12, 12, 18, 0.4);
+}
+
+.ai-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(42, 42, 62, 0.6);
+  background: rgba(26, 26, 46, 0.6);
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-btn:hover {
+  border-color: rgba(168, 85, 247, 0.5);
+  color: #e2e8f0;
+  background: rgba(168, 85, 247, 0.1);
+}
+
+.ai-btn.ai-active {
+  border-color: rgba(16, 185, 129, 0.6);
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+}
+
+/* ===== Level Meter ===== */
+
+.level-meter {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 40px;
+}
+
+.level-bar {
+  width: 3px;
+  border-radius: 1px;
+  transition: height 0.08s ease;
+  min-height: 2px;
+}
+
+/* ===== Deck BPM badge ===== */
+.bpm-badge {
+  font-family: 'Outfit', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+/* ===== DJ Responsive ===== */
+@media (max-width: 768px) {
+  .dj-decks-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 8px 12px;
+  }
+  .waveform-container {
+    height: 72px;
+  }
+  .eq-slider {
+    height: 50px;
+  }
+  .vol-fader {
+    height: 50px;
+  }
+}
