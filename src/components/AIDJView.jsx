@@ -28,6 +28,17 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const [transitionFX, setTransitionFX] = useState('riser');
   const [beatDropTime, setBeatDropTime] = useState(0);
+  const [transitionBeats, setTransitionBeats] = useState(16);
+  const [analyzedBPM, setAnalyzedBPM] = useState(0);
+  const [transitionStyle, setTransitionStyle] = useState('blend');
+  const [crossfader, setCrossfader] = useState(50);
+  const [tempo, setTempo] = useState(100);
+  const [eqLow, setEqLow] = useState(0);
+  const [eqMid, setEqMid] = useState(0);
+  const [eqHigh, setEqHigh] = useState(0);
+  const [crowdFX, setCrowdFX] = useState(false);
+  const [trackKey, setTrackKey] = useState('');
+  const [trackEnergy, setTrackEnergy] = useState('medium');
 
   const spectrumRef = useRef(null);
   const waveformRef = useRef(null);
@@ -75,22 +86,23 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
   // Status updates
   useEffect(() => {
     if (isCrossfading) {
-      setAiStatus('🎵 AI crossfading — beat-aligned transition...');
+      setAiStatus(`🎵 EQ transition: bass swap → mid blend → high fade (${transitionBeats} beats)`);
     } else if (isPlaying && bpm > 0) {
       const rem = duration - currentTime;
+      const detBpm = analyzedBPM || bpm;
       if (rem < 15 && rem > 0 && autoMix) {
-        setAiStatus(`⏳ Auto-mix in ${Math.ceil(rem)}s — preparing next track`);
+        setAiStatus(`⏳ Auto-mix in ${Math.ceil(rem)}s — phrase-aligned transition queued`);
       } else {
-        setAiStatus(`🎧 Playing · ${bpm} BPM · Confidence ${confidence}% · Energy ${Math.round(energy * 100)}%`);
+        setAiStatus(`🎧 Live: ${detBpm} BPM · ${confidence}% conf · ${Math.round(energy*100)}% energy · ${transitionBeats}-beat transitions`);
       }
     } else if (isPlaying) {
-      setAiStatus('🔬 Analyzing audio — detecting BPM...');
+      setAiStatus('🔬 Analyzing audio — detecting BPM & beat grid...');
     } else if (analyzed) {
-      setAiStatus('✅ All tracks analyzed — ready to mix');
+      setAiStatus('✅ All tracks analyzed (BPM, beat grid, phrases, energy) — ready');
     } else {
       setAiStatus('AI ready — press play to start');
     }
-  }, [isPlaying, bpm, confidence, energy, isCrossfading, currentTime, duration, autoMix, analyzed]);
+  }, [isPlaying, bpm, confidence, energy, isCrossfading, currentTime, duration, autoMix, analyzed, transitionBeats, analyzedBPM]);
 
   const drawSpectrum = useCallback(() => {
     const c = spectrumRef.current;
@@ -146,6 +158,10 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
       setHasStarted(true);
       const bd = audioEngine.getBeatDropTime(currentTrack.src);
       setBeatDropTime(bd);
+      const abpm = audioEngine.getTrackBPM(currentTrack.src);
+      if (abpm) setAnalyzedBPM(abpm);
+      setTrackKey(audioEngine.getTrackKey(currentTrack.src)||'');
+      setTrackEnergy(audioEngine.getTrackEnergy(currentTrack.src)||'medium');
     } else if (isPlaying) {
       audioEngine.pause();
     } else {
@@ -153,9 +169,20 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
     }
   };
 
+  const handleStyleChange = (s) => { setTransitionStyle(s); audioEngine?.setTransitionStyle(s); };
+  const handleCrossfader = (e) => { const v=Number(e.target.value); setCrossfader(v); audioEngine?.setCrossfader(v/100); };
+  const handleTempo = (e) => { const v=Number(e.target.value); setTempo(v); audioEngine?.setTempo(v/100); };
+  const handleEQ = (band,e) => { const v=Number(e.target.value); if(band==='low')setEqLow(v); if(band==='mid')setEqMid(v); if(band==='high')setEqHigh(v); audioEngine?.setEQ(band,v); };
+  const handleCrowdFX = () => { const r=audioEngine?.toggleCrowdAmbience(); setCrowdFX(r||false); };
+
   const handleFXChange = (type) => {
     setTransitionFX(type);
     audioEngine?.setTransitionFX(type);
+  };
+
+  const handleTransitionBeats = (beats) => {
+    setTransitionBeats(beats);
+    audioEngine?.setTransitionBeats(beats);
   };
 
   const handleSkip = useCallback(async () => {
@@ -172,6 +199,10 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
     }
     const bd = audioEngine?.getBeatDropTime(next.src) || 0;
     setBeatDropTime(bd);
+    setTrackKey(audioEngine?.getTrackKey(next.src)||'');
+    setTrackEnergy(audioEngine?.getTrackEnergy(next.src)||'medium');
+    const abpm = audioEngine?.getTrackBPM(next.src) || 0;
+    if (abpm) setAnalyzedBPM(abpm);
     setTimeout(() => setIsCrossfading(false), 3200);
   }, [audioEngine, currentTrackIdx, sortedQueue, hasStarted]);
 
@@ -255,22 +286,27 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
             </span>
           )}
         </div>
-        {/* Transition FX selector */}
-        <div className="flex items-center gap-2 mt-2">
+        {/* Transition controls */}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
           <Waves size={10} className="text-club-muted" />
-          <span className="text-[9px] text-club-muted font-semibold">Transition FX:</span>
+          <span className="text-[9px] text-club-muted font-semibold">FX:</span>
           {Object.entries(AudioEngine.FX_TYPES).map(([key, fx]) => (
-            <button
-              key={key}
-              onClick={() => handleFXChange(key)}
+            <button key={key} onClick={() => handleFXChange(key)}
               className={`px-2 py-0.5 rounded text-[9px] font-semibold border transition-all ${
                 transitionFX === key
                   ? key === 'none' ? 'bg-club-surface border-club-border text-white' : 'bg-neon-purple/15 border-neon-purple/40 text-neon-purple'
                   : 'bg-transparent border-club-border/50 text-club-muted hover:border-club-border'
-              }`}
-            >
-              {fx.name}
-            </button>
+              }`}>{fx.name}</button>
+          ))}
+          <span className="text-club-border mx-1">|</span>
+          <span className="text-[9px] text-club-muted font-semibold">Mix Length:</span>
+          {[8, 16, 32].map(b => (
+            <button key={b} onClick={() => handleTransitionBeats(b)}
+              className={`px-2 py-0.5 rounded text-[9px] font-semibold border transition-all ${
+                transitionBeats === b
+                  ? 'bg-neon-cyan/15 border-neon-cyan/40 text-neon-cyan'
+                  : 'bg-transparent border-club-border/50 text-club-muted hover:border-club-border'
+              }`}>{b} beats</button>
           ))}
         </div>
       </div>
@@ -315,10 +351,10 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
             </div>
 
             {/* ML Metrics */}
-            <div className="grid grid-cols-4 gap-2 mb-3">
+            <div className="grid grid-cols-6 gap-1.5 mb-3">
               <div className="text-center p-1.5 rounded-lg bg-club-surface/40">
                 <Activity size={10} className="text-neon-purple mx-auto mb-0.5" />
-                <p className="text-xs font-bold text-white">{bpm || '--'}</p>
+                <p className="text-xs font-bold text-white">{analyzedBPM||bpm||'--'}</p>
                 <p className="text-[8px] text-club-muted">BPM</p>
               </div>
               <div className="text-center p-1.5 rounded-lg bg-club-surface/40">
@@ -335,6 +371,16 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
                 <AudioWaveform size={10} className="text-neon-green mx-auto mb-0.5" />
                 <p className="text-xs font-bold text-white">{beatCount}</p>
                 <p className="text-[8px] text-club-muted">Beats</p>
+              </div>
+              <div className="text-center p-1.5 rounded-lg bg-club-surface/40">
+                <Music size={10} className="text-yellow-400 mx-auto mb-0.5" />
+                <p className="text-xs font-bold text-white">{trackKey||'--'}</p>
+                <p className="text-[8px] text-club-muted">Key</p>
+              </div>
+              <div className="text-center p-1.5 rounded-lg bg-club-surface/40">
+                <Flame size={10} className={`mx-auto mb-0.5 ${trackEnergy==='high'?'text-red-400':trackEnergy==='medium'?'text-yellow-400':'text-blue-400'}`} />
+                <p className="text-xs font-bold text-white capitalize">{trackEnergy}</p>
+                <p className="text-[8px] text-club-muted">Level</p>
               </div>
             </div>
 
@@ -386,6 +432,68 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
         ) : (
           <div className="text-center py-8"><Disc3 size={48} className="text-club-muted/30 mx-auto mb-3" /><p className="text-club-muted text-sm">No track loaded</p></div>
         )}
+      </div>
+
+      {/* DJ Controls Panel */}
+      <div className="glass-card p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles size={14} className="text-neon-pink" />
+          <span className="text-sm font-bold text-white">DJ Controls</span>
+        </div>
+
+        {/* Transition Style */}
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <span className="text-[9px] text-club-muted font-semibold w-12">Style:</span>
+          {Object.entries(AudioEngine.TRANS_STYLES).map(([k,v])=>(
+            <button key={k} onClick={()=>handleStyleChange(k)}
+              className={`px-2 py-1 rounded text-[9px] font-semibold border transition-all ${transitionStyle===k?'bg-neon-pink/15 border-neon-pink/40 text-neon-pink':'bg-transparent border-club-border/50 text-club-muted hover:border-club-border'}`}>{v.name}</button>
+          ))}
+        </div>
+
+        {/* Crossfader */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9px] text-neon-purple font-bold">A</span>
+            <span className="text-[9px] text-club-muted">Crossfader</span>
+            <span className="text-[9px] text-neon-cyan font-bold">B</span>
+          </div>
+          <input type="range" min="0" max="100" value={crossfader} onChange={handleCrossfader}
+            className="w-full h-2 rounded-full appearance-none bg-gradient-to-r from-neon-purple via-club-surface to-neon-cyan" style={{accentColor:'#ec4899'}} />
+        </div>
+
+        {/* EQ + Tempo */}
+        <div className="grid grid-cols-4 gap-3 mb-3">
+          <div>
+            <label className="text-[8px] text-neon-purple font-semibold block text-center mb-1">BASS</label>
+            <input type="range" min="-12" max="12" value={eqLow} onChange={(e)=>handleEQ('low',e)}
+              className="w-full h-1 accent-neon-purple" style={{writingMode:'horizontal-tb'}} />
+            <p className="text-[8px] text-club-muted text-center mt-0.5">{eqLow>0?'+':''}{eqLow}dB</p>
+          </div>
+          <div>
+            <label className="text-[8px] text-neon-pink font-semibold block text-center mb-1">MID</label>
+            <input type="range" min="-12" max="12" value={eqMid} onChange={(e)=>handleEQ('mid',e)}
+              className="w-full h-1 accent-neon-pink" />
+            <p className="text-[8px] text-club-muted text-center mt-0.5">{eqMid>0?'+':''}{eqMid}dB</p>
+          </div>
+          <div>
+            <label className="text-[8px] text-neon-cyan font-semibold block text-center mb-1">HIGH</label>
+            <input type="range" min="-12" max="12" value={eqHigh} onChange={(e)=>handleEQ('high',e)}
+              className="w-full h-1 accent-cyan-400" />
+            <p className="text-[8px] text-club-muted text-center mt-0.5">{eqHigh>0?'+':''}{eqHigh}dB</p>
+          </div>
+          <div>
+            <label className="text-[8px] text-yellow-400 font-semibold block text-center mb-1">TEMPO</label>
+            <input type="range" min="80" max="120" value={tempo} onChange={handleTempo}
+              className="w-full h-1 accent-yellow-400" />
+            <p className="text-[8px] text-club-muted text-center mt-0.5">{tempo}%</p>
+          </div>
+        </div>
+
+        {/* Crowd FX */}
+        <button onClick={handleCrowdFX}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold border transition-all ${crowdFX?'bg-neon-green/10 border-neon-green/40 text-neon-green':'bg-club-card border-club-border text-club-muted'}`}>
+          <Users size={10} /> Crowd Ambience {crowdFX?'ON':'OFF'}
+        </button>
       </div>
 
       {/* Timeline — Drag to Reorder */}
