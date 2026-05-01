@@ -1,15 +1,23 @@
 /**
  * audioEngine.js — mcDJ AI Audio Engine
  *
- * Smart audio engine that handles all mixing automatically:
- * - Single playback pipeline with auto-crossfade
- * - Real-time FFT analysis for spectrum/waveform
+ * Smart audio engine with:
+ * - Beat-drop detection: analyzes audio to skip silence/intros, starts at first beat
+ * - Transition sound effects (riser, impact, sweep) synthesized via Web Audio
+ * - Auto-crossfade with beat-aligned transitions
+ * - Real-time FFT analysis, BPM estimation
  * - Waveform pre-decoding for timeline display
- * - Beat detection & BPM estimation
- * - AI auto-transition with beat-aligned crossfades
  */
 
 const CROSSFADE_DURATION = 3;
+
+// Transition FX types
+const FX_TYPES = {
+  riser: { name: 'Riser', desc: 'Rising sweep building tension' },
+  impact: { name: 'Impact', desc: 'Kick impact on the drop' },
+  sweep: { name: 'Sweep', desc: 'Filter sweep transition' },
+  none: { name: 'None', desc: 'Clean crossfade only' },
+};
 
 export default class AudioEngine {
   constructor() {
@@ -17,7 +25,6 @@ export default class AudioEngine {
     this.analyser = null;
     this.masterGain = null;
 
-    // Two audio elements for crossfade transitions
     this.deckA = { audio: null, source: null, gain: null };
     this.deckB = { audio: null, source: null, gain: null };
     this.activeDeck = 'A';
@@ -27,6 +34,9 @@ export default class AudioEngine {
     this.currentTrack = null;
     this.onTrackEnd = null;
     this.isCrossfading = false;
+
+    // Transition FX
+    this.transitionFX = 'riser'; // default
 
     // FFT buffers
     this.frequencyData = null;
@@ -39,11 +49,15 @@ export default class AudioEngine {
     this.bpmHistory = [];
     this.estimatedBPM = 0;
 
-    // Waveform cache: src -> peaks array
+    // Waveform cache & beat-drop cache
     this.waveformCache = {};
+    this.beatDropCache = {}; // src -> seconds where first beat is
 
     this._initialized = false;
   }
+
+  static get FX_TYPES() { return FX_TYPES; }
+  get fxTypes() { return FX_TYPES; }
 
   init() {
     if (this._initialized) return;
@@ -77,23 +91,191 @@ export default class AudioEngine {
     deck.source.connect(deck.gain);
   }
 
-  _active() {
-    return this.activeDeck === 'A' ? this.deckA : this.deckB;
-  }
-
-  _inactive() {
-    return this.activeDeck === 'A' ? this.deckB : this.deckA;
-  }
+  _active() { return this.activeDeck === 'A' ? this.deckA : this.deckB; }
+  _inactive() { return this.activeDeck === 'A' ? this.deckB : this.deckA; }
 
   async _ensureResumed() {
     if (this.ctx?.state === 'suspended') await this.ctx.resume();
   }
 
-  // ─── Playback ───
+  // ──────────── BEAT-DROP DETECTION ────────────
+  // Analyzes the decoded audio buffer to find where the first significant
+  // energy spike occurs (the "beat drop") so we skip silence/quiet intros.
+
+  async _findBeatDrop(src) {
+    if (this.beatDropCache[src] !== undefined) return this.beatDropCache[src];
+
+    try {
+      const res = await fetch(src);
+      const buf = await res.arrayBuffer();
+      const decoded = await this.ctx.decodeAudioData(buf);
+      const ch = decoded.getChannelData(0);
+      const sampleRate = decoded.sampleRate;
+
+      // Analyze in 50ms windows
+      const windowSize = Math.floor(sampleRate * 0.05);
+      const energies = [];
+      for (let i = 0; i < ch.length - windowSize; i += windowSize) {
+        let sum = 0;
+        for (let j = 0; j < windowSize; j++) {
+          sum += ch[i + j] * ch[i + j];
+        }
+        energies.push(Math.sqrt(sum / windowSize));
+      }
+
+      // Find peak energy
+      const maxEnergy = Math.max(...energies);
+      // Threshold = 25% of peak — first window above this is the "beat drop"
+      const threshold = maxEnergy * 0.25;
+
+      let dropWindow = 0;
+      for (let i = 0; i < energies.length; i++) {
+        if (energies[i] > threshold) {
+          dropWindow = i;
+          break;
+        }
+      }
+
+      // Convert window index to seconds, back up 0.1s for attack
+      const dropTime = Math.max(0, (dropWindow * 0.05) - 0.1);
+      this.beatDropCache[src] = dropTime;
+
+      // Also cache waveform while we have the buffer
+      if (!this.waveformCache[src]) {
+        const numPeaks = 500;
+        const blockSize = Math.floor(ch.length / numPeaks);
+        const peaks = [];
+        for (let i = 0; i < numPeaks; i++) {
+          let max = 0;
+          for (let j = 0; j < blockSize; j++) {
+            const abs = Math.abs(ch[i * blockSize + j]);
+            if (abs > max) max = abs;
+          }
+          peaks.push(max);
+        }
+        this.waveformCache[src] = peaks;
+      }
+
+      return dropTime;
+    } catch (e) {
+      console.warn('Beat drop detection failed:', e);
+      this.beatDropCache[src] = 0;
+      return 0;
+    }
+  }
+
+  // ──────────── TRANSITION SOUND FX ────────────
+  // Synthesized using oscillators + noise — no external files needed
+
+  setTransitionFX(type) {
+    this.transitionFX = FX_TYPES[type] ? type : 'none';
+  }
+
+  getTransitionFX() {
+    return this.transitionFX;
+  }
+
+  _playTransitionFX() {
+    if (!this.ctx || this.transitionFX === 'none') return;
+
+    const now = this.ctx.currentTime;
+    const fxGain = this.ctx.createGain();
+    fxGain.connect(this.masterGain);
+
+    if (this.transitionFX === 'riser') {
+      // Rising sweep: oscillator sweeping up over 2.5s
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(200, now);
+      osc.frequency.exponentialRampToValueAtTime(2000, now + 2.5);
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(400, now);
+      filter.frequency.exponentialRampToValueAtTime(6000, now + 2.5);
+      filter.Q.value = 5;
+
+      fxGain.gain.setValueAtTime(0, now);
+      fxGain.gain.linearRampToValueAtTime(0.12, now + 2);
+      fxGain.gain.linearRampToValueAtTime(0, now + 3);
+
+      osc.connect(filter);
+      filter.connect(fxGain);
+      osc.start(now);
+      osc.stop(now + 3);
+
+    } else if (this.transitionFX === 'impact') {
+      // Low kick impact at the crossfade midpoint
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(150, now + 1.5);
+      osc.frequency.exponentialRampToValueAtTime(30, now + 2);
+
+      fxGain.gain.setValueAtTime(0, now);
+      fxGain.gain.setValueAtTime(0.25, now + 1.5);
+      fxGain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+
+      osc.connect(fxGain);
+      osc.start(now + 1.5);
+      osc.stop(now + 2.5);
+
+      // Add noise burst for the impact texture
+      this._playNoiseBurst(now + 1.5, 0.15, 0.08);
+
+    } else if (this.transitionFX === 'sweep') {
+      // White noise sweep with filter
+      const bufferSize = this.ctx.sampleRate * 3;
+      const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(200, now);
+      filter.frequency.exponentialRampToValueAtTime(8000, now + 1.5);
+      filter.frequency.exponentialRampToValueAtTime(200, now + 3);
+      filter.Q.value = 3;
+
+      fxGain.gain.setValueAtTime(0, now);
+      fxGain.gain.linearRampToValueAtTime(0.08, now + 1);
+      fxGain.gain.linearRampToValueAtTime(0.1, now + 1.5);
+      fxGain.gain.linearRampToValueAtTime(0, now + 3);
+
+      noise.connect(filter);
+      filter.connect(fxGain);
+      noise.start(now);
+      noise.stop(now + 3);
+    }
+  }
+
+  _playNoiseBurst(startTime, duration, vol) {
+    const bufSize = Math.floor(this.ctx.sampleRate * duration);
+    const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) d[i] = (Math.random() * 2 - 1);
+
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(vol, startTime);
+    g.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    src.connect(g);
+    g.connect(this.masterGain);
+    src.start(startTime);
+    src.stop(startTime + duration);
+  }
+
+  // ──────────── PLAYBACK ────────────
 
   async loadAndPlay(src, trackInfo = null) {
     this.init();
     await this._ensureResumed();
+
+    // Find beat drop first
+    const beatDropTime = await this._findBeatDrop(src);
 
     const deck = this._active();
     deck.audio.pause();
@@ -101,17 +283,23 @@ export default class AudioEngine {
     deck.gain.gain.value = 1;
     this.currentTrack = trackInfo;
 
-    // Reset beat detection
     this.beatCount = 0;
     this.lastBeatTime = 0;
     this.prevEnergy = 0;
     this.bpmHistory = [];
     this.estimatedBPM = 0;
 
-    deck.audio.onended = () => {
-      this.isPlaying = false;
-      this.onTrackEnd?.();
-    };
+    deck.audio.onended = () => { this.isPlaying = false; this.onTrackEnd?.(); };
+
+    // Wait for metadata, then seek to beat drop
+    await new Promise(r => {
+      deck.audio.addEventListener('loadedmetadata', r, { once: true });
+      deck.audio.addEventListener('canplay', r, { once: true });
+    });
+
+    if (beatDropTime > 0.5) {
+      deck.audio.currentTime = beatDropTime;
+    }
 
     try {
       await deck.audio.play();
@@ -119,9 +307,6 @@ export default class AudioEngine {
     } catch (err) {
       console.warn('Play failed:', err);
     }
-
-    // Pre-decode waveform
-    this._preDecodeWaveform(src);
   }
 
   async play() {
@@ -133,10 +318,7 @@ export default class AudioEngine {
     }
   }
 
-  pause() {
-    this._active().audio.pause();
-    this.isPlaying = false;
-  }
+  pause() { this._active().audio.pause(); this.isPlaying = false; }
 
   seek(fraction) {
     const a = this._active().audio;
@@ -158,12 +340,17 @@ export default class AudioEngine {
   getDuration() { const d = this._active().audio?.duration; return (d && isFinite(d)) ? d : 0; }
   getRemainingTime() { return Math.max(0, this.getDuration() - this.getCurrentTime()); }
 
-  // ─── AI Crossfade to next track ───
+  getBeatDropTime(src) { return this.beatDropCache[src] || 0; }
+
+  // ──────────── AI CROSSFADE ────────────
 
   async crossfadeTo(src, trackInfo = null) {
     this.init();
     await this._ensureResumed();
     this.isCrossfading = true;
+
+    // Find beat drop for the incoming track
+    const beatDropTime = await this._findBeatDrop(src);
 
     const outDeck = this._active();
     const inDeck = this._inactive();
@@ -173,13 +360,24 @@ export default class AudioEngine {
     inDeck.gain.gain.value = 0;
     this.currentTrack = trackInfo;
 
-    inDeck.audio.onended = () => {
-      this.isPlaying = false;
-      this.onTrackEnd?.();
-    };
+    inDeck.audio.onended = () => { this.isPlaying = false; this.onTrackEnd?.(); };
+
+    // Wait for metadata, seek to beat drop
+    await new Promise(r => {
+      inDeck.audio.addEventListener('loadedmetadata', r, { once: true });
+      inDeck.audio.addEventListener('canplay', r, { once: true });
+    });
+
+    if (beatDropTime > 0.5) {
+      inDeck.audio.currentTime = beatDropTime;
+    }
 
     try { await inDeck.audio.play(); } catch (e) { console.warn(e); }
 
+    // Play transition FX
+    this._playTransitionFX();
+
+    // Crossfade gains
     const now = this.ctx.currentTime;
     outDeck.gain.gain.setValueAtTime(outDeck.gain.gain.value, now);
     outDeck.gain.gain.linearRampToValueAtTime(0, now + CROSSFADE_DURATION);
@@ -200,11 +398,9 @@ export default class AudioEngine {
     }, CROSSFADE_DURATION * 1000 + 200);
 
     this.activeDeck = this.activeDeck === 'A' ? 'B' : 'A';
-
-    this._preDecodeWaveform(src);
   }
 
-  // ─── Waveform ───
+  // ──────────── WAVEFORM ────────────
 
   async _preDecodeWaveform(src) {
     if (this.waveformCache[src]) return;
@@ -225,34 +421,25 @@ export default class AudioEngine {
         peaks.push(max);
       }
       this.waveformCache[src] = peaks;
-    } catch (e) {
-      console.warn('Waveform decode failed:', e);
-    }
+    } catch (e) { console.warn('Waveform decode failed:', e); }
   }
 
-  getWaveformPeaks(src) {
-    return this.waveformCache[src] || null;
-  }
+  getWaveformPeaks(src) { return this.waveformCache[src] || null; }
 
-  // Pre-decode all tracks
   async preDecodeAll(trackList) {
     this.init();
     for (const t of trackList) {
-      await this._preDecodeWaveform(t.src);
+      await this._findBeatDrop(t.src); // also caches waveform
     }
   }
 
-  // ─── Analysis ───
+  // ──────────── ANALYSIS ────────────
 
   getFrequencyData() {
     if (!this.analyser || !this.frequencyData) return new Array(32).fill(0);
     this.analyser.getByteFrequencyData(this.frequencyData);
     const bins = 32, bs = Math.floor(this.frequencyData.length / bins), r = [];
-    for (let i = 0; i < bins; i++) {
-      let s = 0;
-      for (let j = 0; j < bs; j++) s += this.frequencyData[i * bs + j];
-      r.push((s / bs) / 255);
-    }
+    for (let i = 0; i < bins; i++) { let s = 0; for (let j = 0; j < bs; j++) s += this.frequencyData[i * bs + j]; r.push((s / bs) / 255); }
     return r;
   }
 
@@ -296,7 +483,6 @@ export default class AudioEngine {
 
   getBPM() { return this.estimatedBPM || 0; }
   getBeatCount() { return this.beatCount; }
-
   getConfidence() {
     if (this.bpmHistory.length < 4) return 0;
     const avg = this.bpmHistory.reduce((a, b) => a + b, 0) / this.bpmHistory.length;
@@ -304,7 +490,6 @@ export default class AudioEngine {
     return Math.max(0, Math.min(100, Math.round(100 - Math.sqrt(v) * 3)));
   }
 
-  // ─── AI: check if near end for auto-advance ───
   shouldAutoAdvance() {
     const rem = this.getRemainingTime();
     return this.isPlaying && rem > 0 && rem < 8;

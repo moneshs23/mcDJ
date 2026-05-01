@@ -3,8 +3,9 @@ import {
   Play, Pause, SkipForward, Volume2, VolumeX, Music, Disc3,
   Brain, Zap, Activity, Sparkles, ThumbsUp, Crown, TrendingUp,
   GripVertical, Wand2, BarChart3, Shuffle, Users, Flame,
-  ChevronRight, Clock, AudioWaveform
+  ChevronRight, Clock, AudioWaveform, Waves, Radio
 } from 'lucide-react';
+import AudioEngine from '../audioEngine';
 
 export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, vibeLevel, onVote }) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -25,6 +26,8 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
   const [analyzed, setAnalyzed] = useState(false);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
+  const [transitionFX, setTransitionFX] = useState('riser');
+  const [beatDropTime, setBeatDropTime] = useState(0);
 
   const spectrumRef = useRef(null);
   const waveformRef = useRef(null);
@@ -141,11 +144,18 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
     if (!hasStarted) {
       await audioEngine.loadAndPlay(currentTrack.src, currentTrack);
       setHasStarted(true);
+      const bd = audioEngine.getBeatDropTime(currentTrack.src);
+      setBeatDropTime(bd);
     } else if (isPlaying) {
       audioEngine.pause();
     } else {
       await audioEngine.play();
     }
+  };
+
+  const handleFXChange = (type) => {
+    setTransitionFX(type);
+    audioEngine?.setTransitionFX(type);
   };
 
   const handleSkip = useCallback(async () => {
@@ -160,6 +170,8 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
       await audioEngine.loadAndPlay(next.src, next);
       setHasStarted(true);
     }
+    const bd = audioEngine?.getBeatDropTime(next.src) || 0;
+    setBeatDropTime(bd);
     setTimeout(() => setIsCrossfading(false), 3200);
   }, [audioEngine, currentTrackIdx, sortedQueue, hasStarted]);
 
@@ -235,7 +247,32 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
             </button>
           </div>
         </div>
-        <p className="text-[10px] text-club-muted mt-1.5 truncate">{aiStatus}</p>
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-[10px] text-club-muted truncate flex-1">{aiStatus}</p>
+          {beatDropTime > 0.5 && (
+            <span className="text-[9px] px-2 py-0.5 rounded-full bg-neon-pink/15 text-neon-pink border border-neon-pink/30 font-semibold ml-2 flex-shrink-0">
+              ⚡ Beat drop at {beatDropTime.toFixed(1)}s
+            </span>
+          )}
+        </div>
+        {/* Transition FX selector */}
+        <div className="flex items-center gap-2 mt-2">
+          <Waves size={10} className="text-club-muted" />
+          <span className="text-[9px] text-club-muted font-semibold">Transition FX:</span>
+          {Object.entries(AudioEngine.FX_TYPES).map(([key, fx]) => (
+            <button
+              key={key}
+              onClick={() => handleFXChange(key)}
+              className={`px-2 py-0.5 rounded text-[9px] font-semibold border transition-all ${
+                transitionFX === key
+                  ? key === 'none' ? 'bg-club-surface border-club-border text-white' : 'bg-neon-purple/15 border-neon-purple/40 text-neon-purple'
+                  : 'bg-transparent border-club-border/50 text-club-muted hover:border-club-border'
+              }`}
+            >
+              {fx.name}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Vibe Meter */}
