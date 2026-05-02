@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Disc3, LogOut, ArrowLeftRight, Radio, Brain } from 'lucide-react';
+import { Disc3, LogOut, ArrowLeftRight, Radio } from 'lucide-react';
 import LandingPage from './components/LandingPage';
 import AuthScreen from './components/AuthScreen';
 import JoinScreen from './components/JoinScreen';
 import AIDJView from './components/AIDJView';
 import CrowdView from './components/CrowdView';
-import BeatVisualizer from './components/BeatVisualizer';
 import AudioEngine from './audioEngine';
 
 const TRACK_LIST = [
@@ -26,18 +25,14 @@ const INITIAL_USERS = [
   { name: 'MidnightDJ', online: true },
 ];
 
-const VIP_CODE = 'MCDJ42';
-
 export default function App() {
   const [page, setPage] = useState('landing');
   const [role, setRole] = useState(null);
   const [userName, setUserName] = useState('');
   const [queue, setQueue] = useState([...TRACK_LIST]);
-  const [currentSong, setCurrentSong] = useState(TRACK_LIST[0]);
   const [users, setUsers] = useState(INITIAL_USERS);
   const [vibeLevel, setVibeLevel] = useState(45);
   const [voteTimestamps, setVoteTimestamps] = useState([]);
-  const [showVisualizer, setShowVisualizer] = useState(false);
 
   const engineRef = useRef(null);
   if (!engineRef.current) engineRef.current = new AudioEngine();
@@ -75,39 +70,30 @@ export default function App() {
   if (page === 'join') return <JoinScreen onNavigate={setPage} onJoin={handleJoin} />;
 
   return (
-    <div className="min-h-screen bg-gradient-club">
-      <header className="sticky top-0 z-50 glass border-b border-club-border/50">
-        <div className={`mx-auto px-4 py-3 flex items-center justify-between transition-all ${role === 'host' && !showVisualizer ? 'max-w-[1400px]' : 'max-w-2xl'}`}>
+    <div className="page-bg min-h-screen">
+      <header className="sticky top-0 z-50 card-glass border-b border-border/50">
+        <div className="container-wide py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Disc3 size={22} className="text-neon-purple animate-spin-slow" />
-            <h1 className="text-xl font-black bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent" style={{fontFamily:'Outfit'}}>mcDJ</h1>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${role === 'host' ? 'bg-neon-purple/20 text-neon-purple border border-neon-purple/30' : 'bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/30'}`}>
+            <Disc3 size={20} className="text-accent animate-spin-slow" />
+            <h1 className="text-lg font-bold" style={{ fontFamily: 'Outfit' }}>mcDJ</h1>
+            <span className={`badge ${role === 'host' ? 'badge-purple' : 'badge-green'}`}>
               {role === 'host' ? '🤖 AI DJ' : '🎧 Crowd'}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {role === 'host' && (
-              <button id="btn-visualizer" onClick={() => setShowVisualizer(v => !v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors text-xs font-medium ${showVisualizer ? 'bg-neon-purple/20 border-neon-purple/50 text-neon-purple' : 'bg-club-card border-club-border hover:border-neon-purple/50 text-club-text'}`}>
-                <Brain size={12} /><span className="hidden sm:inline">Visualize</span>
-              </button>
-            )}
-            <button id="btn-switch-role" onClick={() => { setShowVisualizer(false); setRole(r => r === 'host' ? 'crowd' : 'host'); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-club-card border border-club-border hover:border-neon-purple/50 transition-colors text-xs font-medium text-club-text">
+            <button onClick={() => setRole(r => r === 'host' ? 'crowd' : 'host')}
+              className="btn btn-ghost btn-xs">
               <ArrowLeftRight size={12} /> Switch
             </button>
-            <button id="btn-logout" onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-club-card border border-club-border hover:border-red-500/50 hover:text-red-400 transition-colors text-xs font-medium text-club-muted">
+            <button onClick={handleLogout} className="btn btn-ghost btn-xs text-text-muted hover:text-danger">
               <LogOut size={12} />
             </button>
           </div>
         </div>
       </header>
 
-      <main className={`mx-auto px-4 py-6 transition-all ${role === 'host' && !showVisualizer ? 'max-w-[1400px]' : 'max-w-2xl'}`}>
-        {showVisualizer ? (
-          <BeatVisualizer audioEngine={audioEngine} isPlaying={audioEngine.isPlaying} currentSong={currentSong} />
-        ) : role === 'host' ? (
+      <main className="container-wide py-6">
+        {role === 'host' ? (
           <AIDJView
             audioEngine={audioEngine}
             tracks={TRACK_LIST}
@@ -122,9 +108,9 @@ export default function App() {
         )}
       </main>
 
-      <footer className="border-t border-club-border/30 mt-8">
-        <div className="max-w-2xl mx-auto px-4 py-4 text-center">
-          <p className="text-xs text-club-muted/40 flex items-center justify-center gap-2">
+      <footer className="border-t border-border/30 mt-8">
+        <div className="container-wide py-4 text-center">
+          <p className="text-xs text-text-muted/50 flex items-center justify-center gap-2">
             <Radio size={10} /> Built by Chandramouli S, Dharnish B M & Monesh S · SEPM Project <Radio size={10} />
           </p>
         </div>

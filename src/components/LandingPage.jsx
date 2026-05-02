@@ -1,109 +1,66 @@
-import { useState } from 'react';
-import { Music, Headphones, Mic2, Zap, Disc3, Sparkles, Radio } from 'lucide-react';
+import { Disc3, Radio, ArrowRight } from 'lucide-react';
 
 export default function LandingPage({ onNavigate }) {
-  const [hoveredBtn, setHoveredBtn] = useState(null);
-
   return (
-    <div className="min-h-screen bg-gradient-club flex flex-col items-center justify-center relative overflow-hidden px-4">
-      {/* Background animated orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-neon-purple/10 rounded-full blur-3xl animate-pulse-glow" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-neon-cyan/10 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-neon-pink/10 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '2s' }} />
-        
-        {/* Floating music notes */}
-        {[...Array(6)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute text-neon-purple/20 animate-float"
-            style={{
-              left: `${15 + i * 15}%`,
-              top: `${10 + (i % 3) * 30}%`,
-              animationDelay: `${i * 0.5}s`,
-              fontSize: `${20 + i * 4}px`
-            }}
-          >
-            ♪
+    <div className="page-bg flex flex-col min-h-screen">
+      {/* Nav */}
+      <nav className="flex items-center justify-between px-6 py-4">
+        <div className="flex items-center gap-2">
+          <Disc3 size={20} className="text-accent animate-spin-slow" />
+          <span className="text-lg font-bold" style={{ fontFamily: 'Outfit' }}>mcDJ</span>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <main className="flex-1 flex items-center justify-center">
+        <div className="container-narrow text-center animate-slide-up">
+          {/* EQ Bars */}
+          <div className="eq-bars justify-center mb-6 mx-auto">
+            {[...Array(5)].map((_, i) => <div key={i} className="eq-bar" />)}
           </div>
-        ))}
-      </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 text-center max-w-2xl animate-slide-up">
-        {/* Logo / Icon */}
-        <div className="mb-8 flex justify-center">
-          <div className="relative">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-neon-purple via-neon-pink to-neon-cyan flex items-center justify-center animate-spin-slow">
-              <Disc3 size={48} className="text-white" />
-            </div>
-            <div className="absolute inset-0 w-24 h-24 rounded-full bg-gradient-to-br from-neon-purple via-neon-pink to-neon-cyan blur-xl opacity-40 animate-pulse-glow" />
+          <h1 className="text-4xl sm:text-5xl font-black mb-4 leading-tight" style={{ fontFamily: 'Outfit' }}>
+            AI-Powered
+            <br />
+            <span className="text-accent">Music Mixing</span>
+          </h1>
+
+          <p className="text-text-secondary text-base mb-8 max-w-sm mx-auto leading-relaxed">
+            Smart beat-matching, automatic transitions, and crowd voting — all powered by AI. No DJ needed.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button onClick={() => onNavigate('auth')} className="btn btn-primary text-base px-8 py-3">
+              <Radio size={16} /> Host a Session
+            </button>
+            <button onClick={() => onNavigate('join')} className="btn btn-secondary text-base px-8 py-3">
+              Join as Crowd <ArrowRight size={16} />
+            </button>
+          </div>
+
+          {/* Features */}
+          <div className="grid grid-cols-3 gap-4 mt-12">
+            {[
+              { emoji: '🎵', label: 'Auto Mixing', desc: 'Beat-matched transitions' },
+              { emoji: '🗳️', label: 'Crowd Voting', desc: 'Request & upvote songs' },
+              { emoji: '🤖', label: 'AI Engine', desc: 'Smart tempo & key sync' },
+            ].map((f, i) => (
+              <div key={i} className="text-center p-4 rounded-xl bg-surface-2/50 border border-border/50">
+                <span className="text-2xl">{f.emoji}</span>
+                <p className="text-xs font-semibold text-text-primary mt-2">{f.label}</p>
+                <p className="text-[10px] text-text-muted mt-0.5">{f.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
+      </main>
 
-        {/* Title */}
-        <h1 className="text-7xl md:text-8xl font-black tracking-tight mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
-          <span className="bg-gradient-to-r from-neon-purple via-neon-pink to-neon-cyan bg-clip-text text-transparent">
-            mcDJ
-          </span>
-        </h1>
-
-        {/* Slogan */}
-        <p className="text-xl md:text-2xl text-club-muted font-light mb-2 tracking-wide">
-          Control the aux. Drop the beat.
+      {/* Footer */}
+      <footer className="py-4 text-center">
+        <p className="text-xs text-text-muted">
+          Built by Chandramouli S, Dharnish B M & Monesh S · SEPM Project
         </p>
-        <p className="text-sm text-club-muted/60 mb-12 flex items-center justify-center gap-2">
-          <Sparkles size={14} className="text-neon-purple" />
-          A Social Music Sequencer
-          <Sparkles size={14} className="text-neon-cyan" />
-        </p>
-
-        {/* Equalizer visualization */}
-        <div className="flex items-end justify-center gap-1 mb-12 h-6">
-          {[...Array(20)].map((_, i) => (
-            <div
-              key={i}
-              className="eq-bar"
-              style={{
-                animationDelay: `${i * 0.1}s`,
-                background: i < 7 ? '#a855f7' : i < 14 ? '#ec4899' : '#06b6d4'
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Entry Buttons */}
-        <div className="flex flex-col sm:flex-row gap-5 justify-center">
-          <button
-            id="btn-host"
-            className="btn-neon btn-purple flex items-center justify-center gap-3 text-lg px-8 py-4 rounded-xl glow-purple"
-            onClick={() => onNavigate('auth')}
-            onMouseEnter={() => setHoveredBtn('host')}
-            onMouseLeave={() => setHoveredBtn(null)}
-          >
-            <Mic2 size={22} className={hoveredBtn === 'host' ? 'animate-vibe-pulse' : ''} />
-            Host the Main Stage
-          </button>
-
-          <button
-            id="btn-join"
-            className="btn-neon btn-cyan flex items-center justify-center gap-3 text-lg px-8 py-4 rounded-xl glow-cyan"
-            onClick={() => onNavigate('join')}
-            onMouseEnter={() => setHoveredBtn('join')}
-            onMouseLeave={() => setHoveredBtn(null)}
-          >
-            <Headphones size={22} className={hoveredBtn === 'join' ? 'animate-vibe-pulse' : ''} />
-            Enter the Club
-          </button>
-        </div>
-
-        {/* Team Credit */}
-        <div className="mt-16 flex items-center justify-center gap-2 text-xs text-club-muted/40">
-          <Radio size={12} />
-          <span>Built by Chandramouli S, Dharnish B M & Monesh S</span>
-          <Radio size={12} />
-        </div>
-      </div>
+      </footer>
     </div>
   );
 }

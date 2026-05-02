@@ -1,17 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Play, Pause, SkipForward, Volume2, VolumeX, Music,
-  Brain, Shuffle, Clock, Crown, GripVertical, ChevronRight, ThumbsUp
+  Play, Pause, Music, Brain, Zap, ThumbsUp, Users,
+  ChevronRight, TrendingUp, Flame, Clock, Shuffle
 } from 'lucide-react';
-import AudioEngine from '../audioEngine';
-import DualWaveform from './DualWaveform';
-import VinylDisc from './VinylDisc';
-import EQKnob from './EQKnob';
-import CrossfaderPanel from './CrossfaderPanel';
-import EnergyFlowPanel from './EnergyFlowPanel';
-import CrowdFXPanel from './CrowdFXPanel';
-import TransitionPanel from './TransitionPanel';
-import CuePanel from './CuePanel';
 
 export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, vibeLevel, onVote }) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -20,52 +11,23 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTrackIdx, setCurrentTrackIdx] = useState(0);
-  const [volume, setVolume] = useState(85);
-  
   const [bpm, setBpm] = useState(0);
   const [energy, setEnergy] = useState(0);
   const [beatFlash, setBeatFlash] = useState(false);
-  const [autoMix, setAutoMix] = useState(true);
   const [isCrossfading, setIsCrossfading] = useState(false);
-  const [aiStatus, setAiStatus] = useState('AI ready — press play to start');
+  const [aiStatus, setAiStatus] = useState('Ready to play');
   const [analyzed, setAnalyzed] = useState(false);
-  
-  // DJ Controls state
-  const [transitionFX, setTransitionFX] = useState('riser');
-  const [transitionBeats, setTransitionBeats] = useState(16);
-  const [transitionStyle, setTransitionStyle] = useState('blend');
-  const [crossfader, setCrossfader] = useState(50);
-  const [tempo, setTempo] = useState(100);
-  const [crowdFX, setCrowdFX] = useState(false);
-  
-  const [activeDeck, setActiveDeck] = useState('A');
-  const [analysisA, setAnalysisA] = useState(null);
-  const [analysisB, setAnalysisB] = useState(null);
-  
-  // EQs (we just maintain one set for simplicity or duplicate for A/B)
-  const [eqA, setEqA] = useState({ low: 0, mid: 0, high: 0 });
-  const [eqB, setEqB] = useState({ low: 0, mid: 0, high: 0 });
+  const [nextTrackInfo, setNextTrackInfo] = useState(null);
 
+  const waveformRef = useRef(null);
+  const spectrumRef = useRef(null);
   const rafRef = useRef(null);
   const autoAdvanceRef = useRef(false);
 
   const sortedQueue = [...queue].sort((a, b) => b.votes - a.votes);
   const currentTrack = sortedQueue[currentTrackIdx] || null;
-  const nextTrack = sortedQueue[(currentTrackIdx + 1) % sortedQueue.length] || null;
 
-  // Track Analysis Loading
-  useEffect(() => {
-    if (currentTrack && audioEngine) {
-      const a = audioEngine.getAnalysis(currentTrack.src);
-      if (a) setAnalysisA(a);
-    }
-    if (nextTrack && audioEngine) {
-      const b = audioEngine.getAnalysis(nextTrack.src);
-      if (b) setAnalysisB(b);
-    }
-  }, [currentTrack, nextTrack, analyzed, audioEngine]);
-
-  // Animation Loop
+  // Tick loop
   useEffect(() => {
     const tick = () => {
       if (audioEngine) {
@@ -73,61 +35,124 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
         setProgress(audioEngine.getProgress());
         setCurrentTime(audioEngine.getCurrentTime());
         setDuration(audioEngine.getDuration());
-        setActiveDeck(audioEngine.activeDeck || 'A');
 
         if (audioEngine.isPlaying) {
           const beat = audioEngine.detectBeat();
           setBpm(audioEngine.getBPM());
           setEnergy(audioEngine.getEnergy());
-          if (beat) { setBeatFlash(true); setTimeout(() => setBeatFlash(false), 100); }
+          if (beat) { setBeatFlash(true); setTimeout(() => setBeatFlash(false), 120); }
 
-          if (autoMix && audioEngine.shouldAutoAdvance() && !autoAdvanceRef.current) {
+          // Auto-advance with AI mixing
+          if (audioEngine.shouldAutoAdvance() && !autoAdvanceRef.current) {
             autoAdvanceRef.current = true;
-            handleSkip();
+            handleAutoSkip();
             setTimeout(() => { autoAdvanceRef.current = false; }, 12000);
           }
         }
-        
-        // Update crossfader visually during auto-transition
-        if (audioEngine.isCrossfading && autoAdvanceRef.current) {
-          // just let css animation sweep do it, or we could update slider
-        }
-        setIsCrossfading(audioEngine.isCrossfading);
+        drawWaveform();
+        drawSpectrum();
       }
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [audioEngine, autoMix, currentTrackIdx, queue]);
+  }, [audioEngine, currentTrackIdx, queue]);
 
-  // Status updates
+  // AI Status
   useEffect(() => {
     if (isCrossfading) {
-      setAiStatus(`🎵 EQ transition: ${transitionStyle} → blending ${transitionBeats} beats`);
+      setAiStatus('🔀 Mixing transition in progress...');
     } else if (isPlaying && bpm > 0) {
       const rem = duration - currentTime;
-      if (rem < 15 && rem > 0 && autoMix) {
-        setAiStatus(`⏳ Auto-mix in ${Math.ceil(rem)}s — phrase-aligned transition queued`);
+      const abpm = audioEngine?.getTrackBPM(currentTrack?.src) || bpm;
+      if (rem < 15 && rem > 0) {
+        setAiStatus(`⏳ Next track in ${Math.ceil(rem)}s`);
       } else {
-        const curBPM = analysisA?.bpm || bpm;
-        setAiStatus(`🎧 Live: ${curBPM} BPM · ${transitionStyle} ready`);
+        setAiStatus(`Playing at ${abpm} BPM · ${Math.round(energy * 100)}% energy`);
       }
-    } else if (isPlaying) {
-      setAiStatus('🔬 Analyzing audio — detecting BPM & beat grid...');
     } else if (analyzed) {
-      setAiStatus('✅ Tracks analyzed — ready');
+      setAiStatus('All tracks analyzed — ready to play');
     } else {
-      setAiStatus('AI ready — press play to start');
+      setAiStatus('Press play to start AI mixing');
     }
-  }, [isPlaying, bpm, isCrossfading, currentTime, duration, autoMix, analyzed, transitionBeats, transitionStyle, analysisA]);
+  }, [isPlaying, bpm, energy, isCrossfading, currentTime, duration, analyzed]);
 
-  // Handlers
+  // Draw mini waveform
+  const drawWaveform = useCallback(() => {
+    const c = waveformRef.current;
+    if (!c || !audioEngine) return;
+    const ctx = c.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    if (c.width !== c.offsetWidth * dpr) { c.width = c.offsetWidth * dpr; c.height = c.offsetHeight * dpr; ctx.scale(dpr, dpr); }
+    const w = c.offsetWidth, h = c.offsetHeight;
+    ctx.clearRect(0, 0, w, h);
+    const wave = audioEngine.getTimeDomainData();
+    // Fill waveform
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(139,92,246,0.6)';
+    ctx.lineWidth = 1.5;
+    wave.forEach((v, i) => {
+      const x = (i / wave.length) * w, y = h / 2 + v * h * 0.38;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    // Mirror
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(139,92,246,0.2)';
+    ctx.lineWidth = 1;
+    wave.forEach((v, i) => {
+      const x = (i / wave.length) * w, y = h / 2 - v * h * 0.25;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    // Center line
+    ctx.strokeStyle = 'rgba(63,63,70,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+    // Playhead
+    if (audioEngine.isPlaying) {
+      const px = (audioEngine.getProgress() / 100) * w;
+      ctx.strokeStyle = 'rgba(167,139,250,0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, h); ctx.stroke();
+    }
+  }, [audioEngine]);
+
+  // Draw spectrum
+  const drawSpectrum = useCallback(() => {
+    const c = spectrumRef.current;
+    if (!c || !audioEngine) return;
+    const ctx = c.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    if (c.width !== c.offsetWidth * dpr) { c.width = c.offsetWidth * dpr; c.height = c.offsetHeight * dpr; ctx.scale(dpr, dpr); }
+    const w = c.offsetWidth, h = c.offsetHeight;
+    ctx.clearRect(0, 0, w, h);
+    const freq = audioEngine.getFrequencyData();
+    const bw = (w / 32) * 0.7, gap = (w / 32) * 0.3;
+    freq.forEach((v, i) => {
+      const x = i * (bw + gap) + gap / 2, bh = v * h * 0.85;
+      const g = ctx.createLinearGradient(x, h - bh, x, h);
+      g.addColorStop(0, `rgba(139,92,246,${0.4 + v * 0.5})`);
+      g.addColorStop(1, 'rgba(139,92,246,0.05)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.roundRect(x, h - bh, bw, bh, 2);
+      ctx.fill();
+    });
+  }, [audioEngine]);
+
+  // Play/Pause
   const handlePlayPause = async () => {
     if (!audioEngine || !currentTrack) return;
     if (!hasStarted) {
+      setAiStatus('🔬 Analyzing tracks...');
+      await audioEngine.preDecodeAll(sortedQueue);
+      setAnalyzed(true);
+      // Reorder by energy flow automatically
+      const ordered = audioEngine.orderByEnergyFlow(sortedQueue);
+      setQueue(ordered);
       await audioEngine.loadAndPlay(currentTrack.src, currentTrack);
       setHasStarted(true);
-      setAnalysisA(audioEngine.getAnalysis(currentTrack.src));
     } else if (isPlaying) {
       audioEngine.pause();
     } else {
@@ -135,305 +160,197 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
     }
   };
 
-  const handleSkip = useCallback(async () => {
+  // AI auto-skip with smart transition
+  const handleAutoSkip = useCallback(async () => {
     const nextIdx = (currentTrackIdx + 1) % sortedQueue.length;
     if (nextIdx === currentTrackIdx || !sortedQueue[nextIdx]) return;
     const next = sortedQueue[nextIdx];
-    
-    // Auto-select transition if in automix mode
-    if (autoMix && audioEngine && analysisA) {
-      const inEnergy = audioEngine.getTrackEnergy(next.src);
-      const outEnergy = analysisA.energyLevel;
-      if (audioEngine._autoSelectTransition) {
-        const autoTrans = audioEngine._autoSelectTransition(outEnergy, inEnergy);
-        setTransitionStyle(autoTrans.style);
-        setTransitionFX(autoTrans.fx);
-        audioEngine.setTransitionStyle(autoTrans.style);
-        audioEngine.setTransitionFX(autoTrans.fx);
-      }
+
+    // Auto-select transition style based on energy
+    if (audioEngine?._autoSelectTransition) {
+      const outE = audioEngine.getTrackEnergy(currentTrack?.src) || 'medium';
+      const inE = audioEngine.getTrackEnergy(next.src) || 'medium';
+      const auto = audioEngine._autoSelectTransition(outE, inE);
+      audioEngine.setTransitionStyle(auto.style);
+      audioEngine.setTransitionFX(auto.fx);
     }
+
+    // Randomly pick transition beat length
+    const beatOpts = [8, 16, 32];
+    audioEngine?.setTransitionBeats(beatOpts[Math.floor(Math.random() * beatOpts.length)]);
 
     setCurrentTrackIdx(nextIdx);
     setIsCrossfading(true);
-    
+    setNextTrackInfo(next);
+
     if (hasStarted && audioEngine) {
       await audioEngine.crossfadeTo(next.src, next);
     } else if (audioEngine) {
       await audioEngine.loadAndPlay(next.src, next);
       setHasStarted(true);
     }
-    
-    setAnalysisA(audioEngine?.getAnalysis(next.src));
-    setCrossfader(activeDeck === 'A' ? 100 : 0); // visually flip
-    
-    setTimeout(() => setIsCrossfading(false), 3200);
-  }, [audioEngine, currentTrackIdx, sortedQueue, hasStarted, autoMix, analysisA, activeDeck]);
 
-  const handleSeek = (f) => audioEngine?.seek(f);
-  const handleVolume = (e) => { const v = Number(e.target.value); setVolume(v); audioEngine?.setVolume(v / 100); };
-  
-  const handleAnalyze = async () => {
-    if (!audioEngine) return;
-    setAiStatus('🔬 Pre-analyzing all tracks...');
-    await audioEngine.preDecodeAll(sortedQueue);
-    setAnalyzed(true);
+    setTimeout(() => { setIsCrossfading(false); setNextTrackInfo(null); }, 3500);
+  }, [audioEngine, currentTrackIdx, sortedQueue, hasStarted, currentTrack]);
+
+  const handleSeek = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    audioEngine?.seek((e.clientX - r.left) / r.width);
   };
 
-  const handleReorder = () => {
-    if (!audioEngine) return;
-    const ordered = audioEngine.orderByEnergyFlow(sortedQueue);
-    setQueue(ordered);
+  const fmt = (s) => {
+    if (!s || !isFinite(s)) return '0:00';
+    return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
   };
 
-  const handleEQ = (deck, band, val) => {
-    if (deck === 'A') setEqA(p => ({...p, [band]: val}));
-    else setEqB(p => ({...p, [band]: val}));
-    // To properly support dual eq in engine we'd need to expand it, 
-    // for now we just apply to active deck if it matches
-    if (deck === activeDeck) audioEngine?.setEQ(band, val);
+  const getVibeLabel = () => {
+    if (vibeLevel > 80) return '🔥 On Fire';
+    if (vibeLevel > 60) return '💜 Vibing';
+    if (vibeLevel > 40) return '✨ Warming Up';
+    return '🎵 Chill';
+  };
+  const getVibeGrad = () => {
+    if (vibeLevel > 80) return 'from-red-500 to-orange-500';
+    if (vibeLevel > 60) return 'from-purple-500 to-pink-500';
+    if (vibeLevel > 40) return 'from-violet-500 to-purple-500';
+    return 'from-blue-500 to-violet-500';
   };
 
   return (
-    <div className="space-y-4 animate-slide-up w-full">
-      {/* AI Status Bar */}
-      <div className="panel-dark p-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Brain size={16} className="text-neon-purple" />
-            <span className="text-xs font-bold text-white">AI DJ Engine</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-neon-purple/20 text-neon-purple border border-neon-purple/30 font-semibold">
-              {isPlaying ? '● LIVE' : 'READY'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setAutoMix(!autoMix)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-all ${autoMix ? 'bg-neon-green/10 border-neon-green/40 text-neon-green glow-green' : 'bg-club-surface border-club-border text-club-muted'}`}>
-              <Shuffle size={10} /> Auto-Mix {autoMix ? 'ON' : 'OFF'}
-            </button>
-            <button onClick={handleAnalyze}
-              className="px-2.5 py-1 rounded-lg text-[10px] font-semibold border bg-club-surface border-club-border text-club-muted hover:border-neon-purple/50 transition-all">
-              Analyze All
-            </button>
-          </div>
-        </div>
-        <p className="ai-ticker text-club-muted mt-2 truncate">{aiStatus}</p>
+    <div className="space-y-4 animate-slide-up">
+
+      {/* AI Status */}
+      <div className="ai-status">
+        <Brain size={14} className="text-accent flex-shrink-0" />
+        <span className="text-text-secondary flex-1 truncate">{aiStatus}</span>
+        {isPlaying && <span className="badge badge-green text-[10px]">● LIVE</span>}
+        {isCrossfading && <span className="badge badge-purple text-[10px] animate-pulse-soft">MIXING</span>}
       </div>
 
-      {/* Main Dual Deck Console */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        
-        {/* DECK A */}
-        <div className={`deck-card deck-a p-4 ${activeDeck==='A' && isPlaying ? 'deck-active-a' : ''}`}>
-          <div className="flex justify-between items-start mb-4">
-            <div className="flex items-center gap-3">
-              <VinylDisc 
-                isPlaying={activeDeck==='A' && isPlaying} 
-                energy={activeDeck==='A' ? energy : 0} 
-                beatFlash={activeDeck==='A' && beatFlash} 
-                accentColor="#b44fff" size={80} 
-              />
-              <div className="max-w-[160px]">
-                <h3 className="text-sm font-bold text-white truncate">{currentTrack?.track || 'Load Track'}</h3>
-                <p className="text-[10px] text-club-muted truncate">{currentTrack?.artist || '--'}</p>
-                <div className="flex gap-2 mt-2">
-                  <span className="badge bg-neon-purple/20 text-neon-purple">{analysisA?.bpm || '--'} BPM</span>
-                  <span className="badge bg-club-surface text-club-text border border-club-border">{analysisA?.key || '--'}</span>
+      {/* Vibe Meter */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Flame size={14} className={vibeLevel > 60 ? 'text-accent' : 'text-text-muted'} />
+            <span className="text-xs font-semibold text-text-primary">Crowd Vibe</span>
+          </div>
+          <span className="text-xs font-semibold">{getVibeLabel()}</span>
+        </div>
+        <div className="vibe-bar"><div className={`vibe-fill bg-gradient-to-r ${getVibeGrad()}`} style={{ width: `${vibeLevel}%` }} /></div>
+      </div>
+
+      {/* Now Playing */}
+      <div className={`card p-5 relative overflow-hidden transition-all ${isPlaying ? 'border-accent/30' : ''}`}>
+        {isCrossfading && <div className="transition-overlay" />}
+        {beatFlash && <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: 'rgba(139,92,246,0.04)' }} />}
+
+        <div className="flex items-center gap-2 mb-4">
+          <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-success animate-pulse-soft' : 'bg-text-muted'}`} />
+          <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Now Playing</span>
+          {isCrossfading && nextTrackInfo && (
+            <span className="ml-auto text-[10px] text-accent">→ {nextTrackInfo.track}</span>
+          )}
+        </div>
+
+        {currentTrack ? (
+          <>
+            <div className="flex items-center gap-4 mb-4">
+              <div className={`now-playing-art ${isPlaying ? 'playing' : ''}`}>
+                <Music size={28} className="text-white relative z-10" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-bold text-text-primary truncate">{currentTrack.track}</h3>
+                <p className="text-text-muted text-sm truncate">{currentTrack.artist}</p>
+                <div className="flex gap-2 mt-1.5">
+                  {bpm > 0 && <span className="badge badge-purple">{audioEngine?.getTrackBPM(currentTrack.src) || bpm} BPM</span>}
+                  {audioEngine?.getTrackKey(currentTrack.src) && (
+                    <span className="badge badge-muted">{audioEngine.getTrackKey(currentTrack.src)}</span>
+                  )}
                 </div>
               </div>
-            </div>
-            {activeDeck==='A' && isPlaying && (
-              <div className="bpm-display text-neon-purple text-glow-purple">{analysisA?.bpm || bpm}</div>
-            )}
-          </div>
-          
-          <div className="mb-4">
-            <DualWaveform 
-              peaks={analysisA?.peaks} 
-              progress={activeDeck==='A' ? progress : 0} 
-              beatGrid={analysisA?.beatGrid} 
-              cuePoints={analysisA?.cuePoints || audioEngine?.getCuePoints(currentTrack?.src)} 
-              duration={analysisA?.duration} 
-              accentColor="#b44fff" accentRgb="180,79,255"
-              isPlaying={activeDeck==='A' && isPlaying} 
-              height={80} 
-              onSeek={activeDeck==='A' ? handleSeek : null}
-            />
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <CuePanel 
-                cuePoints={analysisA?.cuePoints || audioEngine?.getCuePoints(currentTrack?.src)} 
-                currentTime={activeDeck==='A' ? currentTime : 0} 
-                onJump={(t) => { if(activeDeck==='A') audioEngine?.seek(t/duration); }} 
-              />
-            </div>
-            <div className="flex gap-3">
-              <EQKnob value={eqA.low} label="LOW" color="#b44fff" onChange={(v)=>handleEQ('A','low',v)} />
-              <EQKnob value={eqA.mid} label="MID" color="#ff2d78" onChange={(v)=>handleEQ('A','mid',v)} />
-              <EQKnob value={eqA.high} label="HI" color="#00e5ff" onChange={(v)=>handleEQ('A','high',v)} />
-            </div>
-          </div>
-        </div>
-
-        {/* DECK B (Next Track / Incoming) */}
-        <div className={`deck-card deck-b p-4 ${activeDeck==='B' && isPlaying ? 'deck-active-b' : ''}`}>
-          <div className="flex justify-between items-start mb-4">
-            <div className="flex items-center gap-3">
-              <VinylDisc 
-                isPlaying={activeDeck==='B' && isPlaying} 
-                energy={activeDeck==='B' ? energy : 0} 
-                beatFlash={activeDeck==='B' && beatFlash} 
-                accentColor="#00e5ff" size={80} 
-              />
-              <div className="max-w-[160px]">
-                <h3 className="text-sm font-bold text-white truncate">{nextTrack?.track || 'Load Track'}</h3>
-                <p className="text-[10px] text-club-muted truncate">{nextTrack?.artist || '--'}</p>
-                <div className="flex gap-2 mt-2">
-                  <span className="badge bg-neon-cyan/20 text-neon-cyan">{analysisB?.bpm || '--'} BPM</span>
-                  <span className="badge bg-club-surface text-club-text border border-club-border">{analysisB?.key || '--'}</span>
-                </div>
+              <div className="flex-shrink-0">
+                {isPlaying && (
+                  <div className="eq-bars">
+                    {[...Array(5)].map((_, i) => <div key={i} className="eq-bar" />)}
+                  </div>
+                )}
               </div>
             </div>
-            {activeDeck==='B' && isPlaying && (
-              <div className="bpm-display text-neon-cyan text-glow-cyan">{analysisB?.bpm || bpm}</div>
-            )}
-          </div>
-          
-          <div className="mb-4">
-            <DualWaveform 
-              peaks={analysisB?.peaks} 
-              progress={activeDeck==='B' ? progress : 0} 
-              beatGrid={analysisB?.beatGrid} 
-              cuePoints={analysisB?.cuePoints || audioEngine?.getCuePoints(nextTrack?.src)} 
-              duration={analysisB?.duration} 
-              accentColor="#00e5ff" accentRgb="0,229,255"
-              isPlaying={activeDeck==='B' && isPlaying} 
-              height={80} 
-              transitionZone={isCrossfading}
-              onSeek={activeDeck==='B' ? handleSeek : null}
-            />
-          </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <CuePanel 
-                cuePoints={analysisB?.cuePoints || audioEngine?.getCuePoints(nextTrack?.src)} 
-                currentTime={activeDeck==='B' ? currentTime : 0} 
-                onJump={(t) => { if(activeDeck==='B') audioEngine?.seek(t/(analysisB?.duration||1)); }} 
-              />
+            {/* Waveform */}
+            <div className="waveform-display mb-3">
+              <canvas ref={waveformRef} style={{ width: '100%', height: '100%', display: 'block' }} />
             </div>
-            <div className="flex gap-3">
-              <EQKnob value={eqB.low} label="LOW" color="#00e5ff" onChange={(v)=>handleEQ('B','low',v)} />
-              <EQKnob value={eqB.mid} label="MID" color="#ff2d78" onChange={(v)=>handleEQ('B','mid',v)} />
-              <EQKnob value={eqB.high} label="HI" color="#b44fff" onChange={(v)=>handleEQ('B','high',v)} />
-            </div>
-          </div>
-        </div>
 
+            {/* Spectrum */}
+            <div className="rounded-lg overflow-hidden bg-surface-1 border border-border mb-3" style={{ height: 56 }}>
+              <canvas ref={spectrumRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+            </div>
+
+            {/* Progress */}
+            <div className="mb-4">
+              <div className="progress-track" onClick={handleSeek}>
+                <div className="progress-fill" style={{ width: `${progress}%` }} />
+              </div>
+              <div className="flex justify-between mt-1.5">
+                <span className="text-[11px] text-text-muted font-medium">{fmt(currentTime)}</span>
+                <span className="text-[11px] text-text-muted font-medium">-{fmt(duration - currentTime)}</span>
+              </div>
+            </div>
+
+            {/* Play/Pause — Only control */}
+            <div className="flex items-center justify-center">
+              <button onClick={handlePlayPause}
+                className="w-14 h-14 rounded-full bg-gradient-to-br from-accent to-accent-dim flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-lg"
+                style={{ boxShadow: '0 4px 24px rgba(139,92,246,0.35)' }}>
+                {isPlaying ? <Pause size={22} className="text-white" /> : <Play size={22} className="text-white ml-0.5" />}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-10">
+            <Music size={40} className="text-text-muted/30 mx-auto mb-3" />
+            <p className="text-text-muted text-sm">No track loaded</p>
+          </div>
+        )}
       </div>
 
-      {/* Mixer Center Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        
-        <div className="md:col-span-2">
-          <CrossfaderPanel 
-            value={crossfader} 
-            isCrossfading={isCrossfading} 
-            onChange={(v) => { setCrossfader(v); audioEngine?.setCrossfader(v/100); }} 
-          />
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-            <TransitionPanel 
-              transitionFX={transitionFX} transitionStyle={transitionStyle} transitionBeats={transitionBeats}
-              onFX={(fx) => { setTransitionFX(fx); audioEngine?.setTransitionFX(fx); }}
-              onStyle={(s) => { setTransitionStyle(s); audioEngine?.setTransitionStyle(s); }}
-              onBeats={(b) => { setTransitionBeats(b); audioEngine?.setTransitionBeats(b); }}
-            />
-            <div className="space-y-4">
-              <EnergyFlowPanel 
-                currentStage={audioEngine?.getEnergyFlowCategory(currentTrack?.src) || 'groove'} 
-                onReorder={handleReorder} 
-                trackCount={queue.length} 
-              />
-              <CrowdFXPanel 
-                crowdAmbience={crowdFX} 
-                onToggleCrowd={() => { const r = audioEngine?.toggleCrowdAmbience(); setCrowdFX(r); }}
-                onApplause={() => audioEngine?.playApplause()}
-                dropFlash={beatFlash && energy > 0.8}
-              />
-            </div>
+      {/* Queue — Vote to boost */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={14} className="text-accent" />
+            <span className="text-sm font-bold text-text-primary">Up Next</span>
+            <span className="text-[10px] text-text-muted">— vote to boost</span>
           </div>
-        </div>
-        
-        {/* Master Controls & Transport */}
-        <div className="panel-dark p-4 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-xs font-bold text-white uppercase tracking-wider">Master Out</span>
-              {volume === 0 ? <VolumeX size={14} className="text-club-muted" /> : <Volume2 size={14} className="text-club-muted" />}
-            </div>
-            <input type="range" min="0" max="100" value={volume} onChange={handleVolume} className="w-full h-1 accent-neon-pink mb-4" />
-          </div>
-
-          <div className="flex items-center justify-center gap-6 mt-auto py-4">
-            <button className="transport-btn" onClick={() => {}}><Clock size={16} /></button>
-            <button onClick={handlePlayPause} className={activeDeck==='A' ? 'play-btn-a' : 'play-btn-b'}>
-              {isPlaying ? <Pause size={24} /> : <Play size={24} className="ml-1" />}
-            </button>
-            <button onClick={handleSkip} className="transport-btn"><SkipForward size={16} /></button>
-          </div>
+          <span className="badge badge-muted">{queue.length} tracks</span>
         </div>
 
-      </div>
-
-      {/* Queue / Timeline */}
-      <div className="panel-dark p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-white">Smart Playlist Flow</h3>
-          <span className="text-[10px] text-club-muted bg-club-surface px-2 py-0.5 rounded-full">{queue.length} tracks</span>
-        </div>
-        
         <div className="space-y-1">
           {sortedQueue.map((song, idx) => {
             const isCurrent = idx === currentTrackIdx;
             const isNext = idx === (currentTrackIdx + 1) % sortedQueue.length;
-            const hScore = audioEngine?.getHarmonicScore(analysisA?.key, audioEngine?.getTrackKey(song.src));
-            
             return (
-              <div key={song.id} className={`track-row ${isCurrent ? 'is-current' : isNext ? 'is-next' : ''}`}>
-                <GripVertical size={12} className="text-club-muted/40 flex-shrink-0 cursor-grab" />
-                
+              <div key={song.id} className={`track-row ${isCurrent ? 'current' : isNext ? 'next' : ''}`}>
                 {isCurrent ? (
-                  <div className="w-6 text-center"><div className="w-2 h-2 rounded-full bg-neon-purple animate-pulse mx-auto" /></div>
+                  <div className="w-5 text-center"><div className="w-2 h-2 rounded-full bg-accent animate-pulse-soft mx-auto" /></div>
                 ) : isNext ? (
-                  <div className="w-6 text-center"><ChevronRight size={14} className="text-neon-cyan mx-auto" /></div>
+                  <ChevronRight size={14} className="text-success w-5" />
                 ) : (
-                  <span className="text-[10px] font-bold text-club-muted w-6 text-center">#{idx + 1}</span>
+                  <span className="text-[10px] font-bold text-text-muted w-5 text-center">#{idx + 1}</span>
                 )}
-                
+
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-white truncate">{song.track}</p>
-                  <p className="text-[10px] text-club-muted truncate">{song.artist}</p>
-                </div>
-                
-                {/* AI Badges */}
-                <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
-                  {audioEngine && !isCurrent && (
-                    <span className={`badge border ${hScore > 80 ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-club-surface text-club-muted border-club-border'}`}>
-                      {hScore > 80 ? '✨ Harmonic Match' : 'OK Match'}
-                    </span>
-                  )}
-                  {audioEngine?.getEnergyFlowCategory(song.src) && (
-                    <span className="badge bg-club-surface text-club-muted border border-club-border capitalize">
-                      {audioEngine.getEnergyFlowCategory(song.src)}
-                    </span>
-                  )}
+                  <p className="text-xs font-semibold text-text-primary truncate">{song.track}</p>
+                  <p className="text-[10px] text-text-muted truncate">{song.artist}</p>
                 </div>
 
-                <button onClick={() => onVote?.(song.id)} className="flex items-center gap-1 px-2 py-1 rounded bg-club-surface hover:bg-neon-purple/20 border border-club-border transition-all group flex-shrink-0">
-                  <ThumbsUp size={10} className="text-neon-purple group-hover:scale-110" />
-                  <span className="text-[10px] font-bold text-neon-purple">{song.votes}</span>
+                {isCurrent && <span className="badge badge-purple text-[9px]">PLAYING</span>}
+                {isNext && <span className="badge badge-green text-[9px]">NEXT</span>}
+
+                <button onClick={() => onVote?.(song.id)} className="vote-btn flex-shrink-0">
+                  <ThumbsUp size={11} />
+                  <span>{song.votes}</span>
                 </button>
               </div>
             );
@@ -441,6 +358,22 @@ export default function AIDJView({ audioEngine, tracks, queue, setQueue, users, 
         </div>
       </div>
 
+      {/* Online Users */}
+      <div className="card p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Users size={14} className="text-accent" />
+          <span className="text-sm font-bold text-text-primary">In the Crowd</span>
+          <span className="badge badge-green text-[10px]">{users.length} online</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {users.map((u, i) => (
+            <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-2 border border-border text-[10px]">
+              <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse-soft" />
+              <span className="text-text-secondary font-medium">{u.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
