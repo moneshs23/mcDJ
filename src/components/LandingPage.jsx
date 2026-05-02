@@ -1,54 +1,54 @@
-import { Disc3, Radio, ArrowRight } from 'lucide-react';
+import { Disc3, Radio, ArrowRight, Music, Zap, Users } from 'lucide-react';
 
 export default function LandingPage({ onNavigate }) {
   return (
     <div className="page-bg flex flex-col min-h-screen">
-      {/* Nav */}
-      <nav className="flex items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-2">
-          <Disc3 size={20} className="text-accent animate-spin-slow" />
-          <span className="text-lg font-bold" style={{ fontFamily: 'Outfit' }}>mcDJ</span>
-        </div>
-      </nav>
+      {/* Animated orbs */}
+      <div className="orb orb-1" />
+      <div className="orb orb-2" />
+      <div className="orb orb-3" />
 
-      {/* Hero */}
-      <main className="flex-1 flex items-center justify-center">
-        <div className="container-narrow text-center animate-slide-up">
+      {/* Center content */}
+      <main className="flex-1 flex items-center justify-center relative z-10">
+        <div className="text-center animate-slide-up px-6">
           {/* EQ Bars */}
-          <div className="eq-bars justify-center mb-6 mx-auto">
-            {[...Array(5)].map((_, i) => <div key={i} className="eq-bar" />)}
+          <div className="eq-bars justify-center mb-8 mx-auto" style={{ height: 40 }}>
+            {[...Array(5)].map((_, i) => <div key={i} className="eq-bar" style={{ width: 4 }} />)}
           </div>
 
-          <h1 className="text-4xl sm:text-5xl font-black mb-4 leading-tight" style={{ fontFamily: 'Outfit' }}>
-            AI-Powered
-            <br />
-            <span className="text-accent">Music Mixing</span>
-          </h1>
-
-          <p className="text-text-secondary text-base mb-8 max-w-sm mx-auto leading-relaxed">
-            Smart beat-matching, automatic transitions, and crowd voting — all powered by AI. No DJ needed.
+          {/* Big centered logo */}
+          <h1 className="hero-logo animate-title-glow mb-4">mcDJ</h1>
+          
+          <p className="text-text-secondary text-lg mb-2" style={{ fontFamily: 'Outfit' }}>
+            AI-Powered Music Mixing
+          </p>
+          <p className="text-text-muted text-sm mb-10 max-w-md mx-auto leading-relaxed">
+            Intelligent beat-matching, automatic BPM sync, harmonic key detection, 
+            and crowd voting — all powered by machine learning.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button onClick={() => onNavigate('auth')} className="btn btn-primary text-base px-8 py-3">
-              <Radio size={16} /> Host a Session
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-16">
+            <button onClick={() => onNavigate('auth')} className="btn btn-primary btn-lg">
+              <Radio size={18} /> Host a Session
             </button>
-            <button onClick={() => onNavigate('join')} className="btn btn-secondary text-base px-8 py-3">
-              Join as Crowd <ArrowRight size={16} />
+            <button onClick={() => onNavigate('join')} className="btn btn-secondary btn-lg">
+              Join as Crowd <ArrowRight size={18} />
             </button>
           </div>
 
-          {/* Features */}
-          <div className="grid grid-cols-3 gap-4 mt-12">
+          {/* Feature cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
             {[
-              { emoji: '🎵', label: 'Auto Mixing', desc: 'Beat-matched transitions' },
-              { emoji: '🗳️', label: 'Crowd Voting', desc: 'Request & upvote songs' },
-              { emoji: '🤖', label: 'AI Engine', desc: 'Smart tempo & key sync' },
+              { icon: Music, label: 'Smart Auto-Mix', desc: 'AI analyzes BPM, key & energy to create seamless transitions between songs', color: '#8b5cf6' },
+              { icon: Users, label: 'Crowd Voting', desc: 'Audience requests and upvotes songs in real-time to shape the playlist', color: '#22c55e' },
+              { icon: Zap, label: 'ML Engine', desc: 'Beat detection, spectral analysis, phrase alignment & harmonic mixing', color: '#3b82f6' },
             ].map((f, i) => (
-              <div key={i} className="text-center p-4 rounded-xl bg-surface-2/50 border border-border/50">
-                <span className="text-2xl">{f.emoji}</span>
-                <p className="text-xs font-semibold text-text-primary mt-2">{f.label}</p>
-                <p className="text-[10px] text-text-muted mt-0.5">{f.desc}</p>
+              <div key={i} className="card p-5 text-center">
+                <div className="w-10 h-10 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: f.color + '18' }}>
+                  <f.icon size={20} style={{ color: f.color }} />
+                </div>
+                <p className="text-sm font-semibold text-text-primary mb-1">{f.label}</p>
+                <p className="text-xs text-text-muted leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -56,8 +56,8 @@ export default function LandingPage({ onNavigate }) {
       </main>
 
       {/* Footer */}
-      <footer className="py-4 text-center">
-        <p className="text-xs text-text-muted">
+      <footer className="py-4 text-center relative z-10">
+        <p className="text-xs text-text-muted/50">
           Built by Chandramouli S, Dharnish B M & Monesh S · SEPM Project
         </p>
       </footer>

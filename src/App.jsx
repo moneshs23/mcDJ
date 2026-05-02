@@ -71,8 +71,11 @@ export default function App() {
 
   return (
     <div className="page-bg min-h-screen">
+      {/* Animated orbs */}
+      <div className="orb orb-1" /><div className="orb orb-2" /><div className="orb orb-3" />
+
       <header className="sticky top-0 z-50 card-glass border-b border-border/50">
-        <div className="container-wide py-3 flex items-center justify-between">
+        <div className={`mx-auto px-5 py-3 flex items-center justify-between ${role === 'host' ? 'max-w-[1200px]' : 'max-w-2xl'}`}>
           <div className="flex items-center gap-3">
             <Disc3 size={20} className="text-accent animate-spin-slow" />
             <h1 className="text-lg font-bold" style={{ fontFamily: 'Outfit' }}>mcDJ</h1>
@@ -81,8 +84,7 @@ export default function App() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setRole(r => r === 'host' ? 'crowd' : 'host')}
-              className="btn btn-ghost btn-xs">
+            <button onClick={() => setRole(r => r === 'host' ? 'crowd' : 'host')} className="btn btn-ghost btn-xs">
               <ArrowLeftRight size={12} /> Switch
             </button>
             <button onClick={handleLogout} className="btn btn-ghost btn-xs text-text-muted hover:text-danger">
@@ -92,24 +94,16 @@ export default function App() {
         </div>
       </header>
 
-      <main className="container-wide py-6">
+      <main className={`mx-auto px-5 py-6 ${role === 'host' ? 'max-w-[1200px]' : 'max-w-2xl'}`}>
         {role === 'host' ? (
-          <AIDJView
-            audioEngine={audioEngine}
-            tracks={TRACK_LIST}
-            queue={queue}
-            setQueue={setQueue}
-            users={users}
-            vibeLevel={vibeLevel}
-            onVote={handleVote}
-          />
+          <AIDJView audioEngine={audioEngine} tracks={TRACK_LIST} queue={queue} setQueue={setQueue} users={users} vibeLevel={vibeLevel} onVote={handleVote} />
         ) : (
           <CrowdView queue={queue} setQueue={setQueue} users={users} userName={userName} onVote={handleVote} />
         )}
       </main>
 
-      <footer className="border-t border-border/30 mt-8">
-        <div className="container-wide py-4 text-center">
+      <footer className="border-t border-border/30 mt-8 relative z-10">
+        <div className="max-w-[1200px] mx-auto px-5 py-4 text-center">
           <p className="text-xs text-text-muted/50 flex items-center justify-center gap-2">
             <Radio size={10} /> Built by Chandramouli S, Dharnish B M & Monesh S · SEPM Project <Radio size={10} />
           </p>
