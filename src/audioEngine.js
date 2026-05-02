@@ -1,5 +1,5 @@
 const FX_TYPES={riser:{name:'Riser'},impact:{name:'Impact'},sweep:{name:'Sweep'},none:{name:'None'}};
-const TRANS_STYLES={blend:{name:'Smooth Blend'},cut:{name:'Quick Cut'},echoOut:{name:'Echo Out'},filterSweep:{name:'Filter Sweep'},dropSwap:{name:'Drop Swap'}};
+const TRANS_STYLES={blend:{name:'Smooth Blend'},cut:{name:'Quick Cut'},echoOut:{name:'Echo Out'},filterSweep:{name:'Filter Sweep'},dropSwap:{name:'Drop Swap'},bassSwap:{name:'Bass Swap'},reverbTail:{name:'Reverb Tail'}};
 const CAMELOT=['1A','1B','2A','2B','3A','3B','4A','4B','5A','5B','6A','6B','7A','7B','8A','8B','9A','9B','10A','10B','11A','11B','12A','12B'];
 function camelotCompat(a,b){if(!a||!b)return true;const ia=CAMELOT.indexOf(a),ib=CAMELOT.indexOf(b);if(ia<0||ib<0)return true;const na=parseInt(a),nb=parseInt(b),la=a.slice(-1),lb=b.slice(-1);if(la===lb&&Math.abs(na-nb)<=1)return true;if(la!==lb&&na===nb)return true;return Math.abs(na-nb)<=2;}
 export default class AudioEngine{
@@ -94,7 +94,9 @@ inD.filter.frequency.setValueAtTime(200,now);inD.filter.frequency.exponentialRam
 }else if(style==='dropSwap'){
 outD.gain.gain.setValueAtTime(1,now);outD.gain.gain.linearRampToValueAtTime(0.5,now+t2);outD.gain.gain.linearRampToValueAtTime(0,now+t2+0.05);
 inD.gain.gain.setValueAtTime(0,now);inD.gain.gain.setValueAtTime(1,now+t2+0.05);inD.eqLow.gain.value=0;inD.eqMid.gain.value=0;
-}
+}else if(style==='bassSwap'){this._applyBassSwap(outD,inD,now,t4);}
+else if(style==='reverbTail'){this._applyReverbTail(outD,inD,now,t4,outBPM);}
+
 this.isPlaying=true;this._resetBD();
 setTimeout(()=>{outD.audio.pause();outD.audio.currentTime=0;outD.eqLow.gain.value=0;outD.eqMid.gain.value=0;outD.eqHigh.gain.value=0;outD.filter.frequency.value=20000;outD.delayGain.gain.value=0;outD.feedback.gain.value=0;this.isCrossfading=false;this.playApplause();},transDur*1000+500);
 this.activeDeck=this.activeDeck==='A'?'B':'A';}
@@ -111,4 +113,39 @@ detectBeat(){const e=this.getEnergy();const now=Date.now();const d=e-this.prevEn
 getBPM(){return this.estimatedBPM||0;}
 getBeatCount(){return this.beatCount;}
 getConfidence(){if(this.bpmHistory.length<4)return 0;const a=this.bpmHistory.reduce((x,y)=>x+y,0)/this.bpmHistory.length;const v=this.bpmHistory.reduce((s,x)=>s+(x-a)**2,0)/this.bpmHistory.length;return Math.max(0,Math.min(100,Math.round(100-Math.sqrt(v)*3)));}
+// New transition styles inside crossfadeTo
+_applyBassSwap(outD,inD,now,t4){
+  outD.eqLow.gain.setValueAtTime(0,now);outD.eqLow.gain.linearRampToValueAtTime(-24,now+t4*0.5);
+  inD.eqLow.gain.setValueAtTime(-24,now);inD.eqLow.gain.linearRampToValueAtTime(0,now+t4*0.5);
+  outD.gain.gain.setValueAtTime(1,now);outD.gain.gain.linearRampToValueAtTime(0,now+t4);
+  inD.gain.gain.setValueAtTime(0.7,now);inD.gain.gain.linearRampToValueAtTime(1,now+t4);
+  inD.eqMid.gain.value=0;inD.eqHigh.gain.value=0;
+}
+_applyReverbTail(outD,inD,now,t4,outBPM){
+  const dly=60/outBPM*0.5;outD.delay.delayTime.setValueAtTime(dly,now);
+  outD.delayGain.gain.setValueAtTime(0.5,now);outD.feedback.gain.setValueAtTime(0.6,now);
+  outD.gain.gain.setValueAtTime(1,now);outD.gain.gain.linearRampToValueAtTime(0,now+t4);
+  outD.delayGain.gain.linearRampToValueAtTime(0,now+t4+1.5);outD.feedback.gain.linearRampToValueAtTime(0,now+t4+1.5);
+  inD.gain.gain.setValueAtTime(0,now);inD.gain.gain.linearRampToValueAtTime(1,now+t4*0.6);
+  inD.eqLow.gain.value=0;inD.eqMid.gain.value=0;
+}
+// Sections
+getSections(src){const a=this.analysisCache[src];if(!a)return null;return{intro:{start:0,end:a.introEnd},buildup:{start:a.introEnd,end:a.dropTime>0?a.dropTime*0.8:a.introEnd},drop:{start:a.beatDropTime,end:a.dropTime>0?(a.dropTime+a.outroStart)/2:a.outroStart*0.6},breakdown:{start:a.dropTime>0?(a.dropTime+a.outroStart)/2:a.outroStart*0.5,end:a.outroStart},outro:{start:a.outroStart,end:a.duration}};}
+// Cue points
+getCuePoints(src){const a=this.analysisCache[src];if(!a)return null;if(a.cuePoints)return a.cuePoints;const ep=a.energyProfile||[];const sr_w=0.5;const avgE=ep.length?ep.reduce((s,v)=>s+v,0)/ep.length:0;let buildIdx=0;for(let i=Math.floor(ep.length*0.1);i<ep.length*0.6;i++){if(ep[i]>avgE*0.7&&ep[i+1]>ep[i]){buildIdx=i;break;}}const cp={intro:0,buildup:buildIdx*sr_w,drop:a.beatDropTime||a.dropTime||0,breakdown:a.outroStart>0?(a.dropTime+a.outroStart)/2:0,outro:a.outroStart||a.duration*0.85};a.cuePoints=cp;return cp;}
+// Energy category
+getEnergyFlowCategory(src){const a=this.analysisCache[src];if(!a)return'groove';const e=a.energyLevel;const bpm=a.bpm||120;if(e==='low'&&bpm<100)return'warmup';if(e==='low')return'outro';if(e==='medium'&&bpm<115)return'groove';if(e==='high'&&bpm>130)return'festival';if(e==='high')return'peak';return'groove';}
+// Energy flow ordering
+orderByEnergyFlow(tracks){const order=['warmup','groove','peak','festival','outro'];const cats=tracks.map(t=>({...t,_cat:this.getEnergyFlowCategory(t.src)||'groove',_bpm:this.getTrackBPM(t.src)||120,_energy:this.getTrackEnergy(t.src)||'medium'}));return cats.sort((a,b)=>order.indexOf(a._cat)-order.indexOf(b._cat));}
+// Harmonic score
+getHarmonicScore(keyA,keyB){if(!keyA||!keyB)return 50;const na=parseInt(keyA),nb=parseInt(keyB),la=keyA.slice(-1),lb=keyB.slice(-1);if(keyA===keyB)return 100;if(la===lb&&Math.abs(na-nb)===1)return 90;if(la!==lb&&na===nb)return 85;if(la===lb&&Math.abs(na-nb)===2)return 70;if(Math.abs(na-nb)<=3)return 50;return 20;}
+getHarmonicSuggestions(currentKey,tracks){return [...tracks].sort((a,b)=>this.getHarmonicScore(currentKey,this.getTrackKey(b.src))-this.getHarmonicScore(currentKey,this.getTrackKey(a.src)));}
+// Auto transition selection
+_autoSelectTransition(outEnergy,inEnergy){
+  if(outEnergy==='high'&&inEnergy==='high')return{style:'dropSwap',fx:'impact'};
+  if(outEnergy==='high'&&inEnergy==='low')return{style:'reverbTail',fx:'sweep'};
+  if(outEnergy==='low'&&inEnergy==='high')return{style:'filterSweep',fx:'riser'};
+  if(outEnergy==='medium'&&inEnergy==='high')return{style:'blend',fx:'riser'};
+  return{style:'blend',fx:'none'};
+}
 destroy(){this.deckA?.audio?.pause();this.deckB?.audio?.pause();if(this.crowdSource){try{this.crowdSource.stop();}catch(e){}}if(this.ctx?.state!=='closed')this.ctx?.close().catch(()=>{});}}

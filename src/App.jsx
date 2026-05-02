@@ -77,7 +77,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-club">
       <header className="sticky top-0 z-50 glass border-b border-club-border/50">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className={`mx-auto px-4 py-3 flex items-center justify-between transition-all ${role === 'host' && !showVisualizer ? 'max-w-[1400px]' : 'max-w-2xl'}`}>
           <div className="flex items-center gap-3">
             <Disc3 size={22} className="text-neon-purple animate-spin-slow" />
             <h1 className="text-xl font-black bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent" style={{fontFamily:'Outfit'}}>mcDJ</h1>
@@ -104,7 +104,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6">
+      <main className={`mx-auto px-4 py-6 transition-all ${role === 'host' && !showVisualizer ? 'max-w-[1400px]' : 'max-w-2xl'}`}>
         {showVisualizer ? (
           <BeatVisualizer audioEngine={audioEngine} isPlaying={audioEngine.isPlaying} currentSong={currentSong} />
         ) : role === 'host' ? (
