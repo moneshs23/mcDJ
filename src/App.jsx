@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Disc3, LogOut, ArrowLeftRight, Radio } from 'lucide-react';
+import { Disc3, LogOut, ArrowLeftRight, Radio, Headphones, Sparkles } from 'lucide-react';
 import LandingPage from './components/LandingPage';
 import AuthScreen from './components/AuthScreen';
 import JoinScreen from './components/JoinScreen';
@@ -72,20 +72,22 @@ export default function App() {
   return (
     <div className="page-bg min-h-screen">
       {/* Animated orbs */}
-      <div className="orb orb-1" /><div className="orb orb-2" /><div className="orb orb-3" />
+      <div className="orb orb-1" /><div className="orb orb-2" /><div className="orb orb-3" /><div className="orb orb-4" />
 
-      <header className="sticky top-0 z-50 card-glass border-b border-border/50">
-        <div className={`mx-auto px-5 py-3 flex items-center justify-between ${role === 'host' ? 'max-w-[1200px]' : 'max-w-2xl'}`}>
+      <header className="sticky top-0 z-50 card-glass" style={{ borderBottom: '1px solid rgba(139,92,246,0.08)' }}>
+        <div className="container-wide py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Disc3 size={20} className="text-accent animate-spin-slow" />
-            <h1 className="text-lg font-bold" style={{ fontFamily: 'Outfit' }}>mcDJ</h1>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(236,72,153,0.1))', border: '1px solid rgba(139,92,246,0.2)' }}>
+              <Headphones size={16} className="text-accent-light" />
+            </div>
+            <h1 className="text-lg font-bold" style={{ fontFamily: 'Outfit', background: 'linear-gradient(135deg, #a78bfa, #ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>mcDJ</h1>
             <span className={`badge ${role === 'host' ? 'badge-purple' : 'badge-green'}`}>
               {role === 'host' ? '🤖 AI DJ' : '🎧 Crowd'}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setRole(r => r === 'host' ? 'crowd' : 'host')} className="btn btn-ghost btn-xs">
-              <ArrowLeftRight size={12} /> Switch
+              <ArrowLeftRight size={12} /> Switch View
             </button>
             <button onClick={handleLogout} className="btn btn-ghost btn-xs text-text-muted hover:text-danger">
               <LogOut size={12} />
@@ -94,7 +96,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className={`mx-auto px-5 py-6 ${role === 'host' ? 'max-w-[1200px]' : 'max-w-2xl'}`}>
+      <main className="container-wide py-6">
         {role === 'host' ? (
           <AIDJView audioEngine={audioEngine} tracks={TRACK_LIST} queue={queue} setQueue={setQueue} users={users} vibeLevel={vibeLevel} onVote={handleVote} />
         ) : (
@@ -102,10 +104,10 @@ export default function App() {
         )}
       </main>
 
-      <footer className="border-t border-border/30 mt-8 relative z-10">
-        <div className="max-w-[1200px] mx-auto px-5 py-4 text-center">
-          <p className="text-xs text-text-muted/50 flex items-center justify-center gap-2">
-            <Radio size={10} /> Built by Chandramouli S, Dharnish B M & Monesh S · SEPM Project <Radio size={10} />
+      <footer style={{ borderTop: '1px solid rgba(139,92,246,0.06)' }} className="mt-4 relative z-10">
+        <div className="container-wide py-4 text-center">
+          <p className="text-xs text-text-muted/40 flex items-center justify-center gap-2">
+            <Sparkles size={10} className="text-accent/30" /> Built by Chandramouli S, Dharnish B M & Monesh S · SEPM Project <Sparkles size={10} className="text-accent/30" />
           </p>
         </div>
       </footer>

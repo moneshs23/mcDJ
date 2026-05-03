@@ -148,4 +148,10 @@ _autoSelectTransition(outEnergy,inEnergy){
   if(outEnergy==='medium'&&inEnergy==='high')return{style:'blend',fx:'riser'};
   return{style:'blend',fx:'none'};
 }
+playTransitionSwoosh(){if(!this.ctx)this.init();const now=this.ctx.currentTime;const g=this.ctx.createGain();g.connect(this.masterGain);
+// Swoosh noise sweep
+const bs=this.ctx.sampleRate*1.2;const nb=this.ctx.createBuffer(1,bs,this.ctx.sampleRate);const d=nb.getChannelData(0);for(let i=0;i<bs;i++)d[i]=(Math.random()*2-1)*0.5;const n=this.ctx.createBufferSource();n.buffer=nb;const f=this.ctx.createBiquadFilter();f.type='bandpass';f.frequency.setValueAtTime(300,now);f.frequency.exponentialRampToValueAtTime(8000,now+0.3);f.frequency.exponentialRampToValueAtTime(400,now+0.8);f.Q.value=4;g.gain.setValueAtTime(0,now);g.gain.linearRampToValueAtTime(0.12,now+0.15);g.gain.linearRampToValueAtTime(0.06,now+0.5);g.gain.linearRampToValueAtTime(0,now+1.0);n.connect(f);f.connect(g);n.start(now);n.stop(now+1.2);
+// Sub-bass thud
+const o=this.ctx.createOscillator();o.type='sine';o.frequency.setValueAtTime(80,now+0.25);o.frequency.exponentialRampToValueAtTime(30,now+0.7);const g2=this.ctx.createGain();g2.connect(this.masterGain);g2.gain.setValueAtTime(0,now);g2.gain.linearRampToValueAtTime(0.15,now+0.28);g2.gain.exponentialRampToValueAtTime(0.001,now+0.8);o.connect(g2);o.start(now+0.25);o.stop(now+0.8);
+}
 destroy(){this.deckA?.audio?.pause();this.deckB?.audio?.pause();if(this.crowdSource){try{this.crowdSource.stop();}catch(e){}}if(this.ctx?.state!=='closed')this.ctx?.close().catch(()=>{});}}
